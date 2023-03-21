@@ -1,0 +1,14 @@
+#include <iostream>
+int main()
+{
+	int favnumber;
+	std::cout<<"Enter a number between 1 and 100:";
+	std::cin>>favnumber;
+	std::cout<<"Amazing!!! That's my favorite number too!" <<std::endl;
+std::cout<< " No really!" ;
+std::cout<<favnumber;
+std::cout<<"  is my favorite number too!";
+	return 0;
+	}
+
+	
