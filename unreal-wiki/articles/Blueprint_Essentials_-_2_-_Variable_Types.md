@@ -1,0 +1,20 @@
+Blueprint Essentials - 2 - Variable Types
+=========================================
+
+
+
+**Author:**
+
+Epic Games
+
+**Description:**
+
+Each variable you create in your Blueprints must have a set type. This video covers the most common variable types.
+
+
+
+[Playlist Home](/Category:Epic_Video_Playlists "Category:Epic Video Playlists")
+
+[< Variables Overview](/Blueprint_Essentials_-_1_-_Variables_Overview "Blueprint Essentials - 1 - Variables Overview")
+
+[Struct Variables >](/Blueprint_Essentials_-_3_-_Struct_Variables "Blueprint Essentials - 3 - Struct Variables")
