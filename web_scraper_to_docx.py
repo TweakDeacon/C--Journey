@@ -5,6 +5,8 @@ Renders JavaScript websites using Playwright and converts content to a readable 
 """
 
 import argparse
+import glob
+import os
 import re
 import sys
 from pathlib import Path
@@ -20,6 +22,16 @@ from playwright.sync_api import sync_playwright
 # Scraping
 # ---------------------------------------------------------------------------
 
+def _find_chromium() -> str | None:
+    """Return a Chromium executable path from the Playwright cache, if found."""
+    cache = Path.home() / ".cache" / "ms-playwright"
+    for pattern in ("chromium*/chrome-linux/chrome", "chromium*/chrome"):
+        matches = sorted(cache.glob(pattern))
+        if matches:
+            return str(matches[-1])  # pick newest version
+    return None
+
+
 def scrape_js_site(url: str, wait_for: str | None = None, timeout: int = 30_000) -> str:
     """
     Use Playwright (headless Chromium) to fully render a JavaScript site
@@ -34,7 +46,13 @@ def scrape_js_site(url: str, wait_for: str | None = None, timeout: int = 30_000)
         Rendered HTML string.
     """
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        # Allow overriding the Chromium binary via env var; otherwise auto-detect
+        # installed builds so the script works across different Playwright versions.
+        executable = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH") or _find_chromium()
+        launch_kwargs = {"headless": True}
+        if executable:
+            launch_kwargs["executable_path"] = executable
+        browser = pw.chromium.launch(**launch_kwargs)
         page = browser.new_page()
         page.goto(url, wait_until="networkidle", timeout=timeout)
 
