@@ -383,7 +383,6 @@ if __name__ == "__main__":
     if remaining:
         out_file = remaining[0]
     else:
-        ext = ".jsonl.gz" if fast else ".jsonl.gz"
-        out_file = f"{wiki_name}_wiki.json"
+        out_file = f"{wiki_name}_wiki.jsonl.gz"
 
     download_wiki(wiki_name, out_file, fast=fast)
