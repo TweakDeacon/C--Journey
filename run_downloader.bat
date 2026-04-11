@@ -3,9 +3,9 @@ echo Installing dependencies...
 pip install cloudscraper beautifulsoup4 --quiet
 
 echo.
-echo Downloading Analog Horror wiki...
+echo Downloading Creepypasta wiki...
 echo.
-python fandom_downloader.py analog-horror-0
+python fandom_downloader.py creepypasta
 
 echo.
 echo ----------------------------------------

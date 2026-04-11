@@ -71,29 +71,52 @@ def _fetch(session, url: str, retries: int = 4):
 # Step 1 — discover every page URL via Special:AllPages
 # ---------------------------------------------------------------------------
 
-def get_all_page_urls(wiki: str, session: requests.Session) -> list[str]:
+def get_all_page_urls(wiki: str, session) -> list[str]:
     """
-    Scrape the wiki's Local_Sitemap page to get every article URL.
+    Discover every article URL on the wiki.
+    Tries Local_Sitemap first (single page, all links).
+    Falls back to Special:AllPages which paginates alphabetically.
     """
     base = f"https://{wiki}.fandom.com"
-    sitemap_url = f"{base}/wiki/Local_Sitemap"
-
-    print(f"  Fetching page list from: {sitemap_url}")
-    resp = _fetch(session, sitemap_url)
-    if resp is None:
-        print(f"  Could not reach {sitemap_url}")
-        return []
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    # Skip namespaced pages (Special:, File:, User:, Talk:, etc.)
     _SKIP = re.compile(r"^/wiki/[^:]+:", re.IGNORECASE)
 
+    def _extract_wiki_links(soup):
+        urls = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.startswith("/wiki/") and not _SKIP.match(href):
+                urls.append(base + href)
+        return urls
+
+    # --- Try Local_Sitemap first ---
+    sitemap_url = f"{base}/wiki/Local_Sitemap"
+    print(f"  Trying: {sitemap_url}")
+    resp = _fetch(session, sitemap_url)
+    if resp:
+        urls = _extract_wiki_links(BeautifulSoup(resp.text, "html.parser"))
+        if urls:
+            return urls
+
+    # --- Fall back to Special:AllPages (paginated) ---
+    print(f"  Trying: Special:AllPages (paginated)")
     urls = []
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith("/wiki/") and not _SKIP.match(href):
-            urls.append(base + href)
+    next_url = f"{base}/wiki/Special:AllPages"
+    while next_url:
+        print(f"  Fetching: {next_url}")
+        resp = _fetch(session, next_url)
+        if resp is None:
+            break
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        body = soup.find("div", class_="mw-allpages-body")
+        if body:
+            urls += _extract_wiki_links(body)
+
+        next_url = None
+        for a in soup.find_all("a", href=True):
+            if "next page" in a.get_text(strip=True).lower():
+                next_url = base + a["href"]
+                break
 
     return urls
 
@@ -209,7 +232,7 @@ def download_wiki(wiki: str, output_path: str):
 
     if not urls:
         print("\nNo pages found. The wiki may be private or the subdomain may be wrong.")
-        print(f"Tried: https://{wiki}.fandom.com/wiki/Local_Sitemap")
+        print(f"Tried: https://{wiki}.fandom.com/wiki/Local_Sitemap and Special:AllPages")
         return
 
     # De-duplicate (Special:AllPages can list the same page twice near boundaries)
