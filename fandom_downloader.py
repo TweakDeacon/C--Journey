@@ -112,8 +112,11 @@ def iter_all_titles(wiki: str, namespace: int = 0):
 # FAST MODE — TextExtracts API (20 pages per request)
 # ---------------------------------------------------------------------------
 
-def fetch_extracts_batch(wiki: str, titles: list[str], session: requests.Session) -> list[dict]:
-    """Fetch plain text for up to 20 pages at once via the TextExtracts API."""
+def fetch_extracts_batch(wiki: str, titles: list[str], session: requests.Session) -> tuple[list[dict], list[str]]:
+    """
+    Fetch plain text for up to 20 pages at once via the TextExtracts API.
+    Returns (records_with_text, titles_with_no_extract).
+    """
     params = {
         "action": "query",
         "prop": "extracts",
@@ -127,16 +130,51 @@ def fetch_extracts_batch(wiki: str, titles: list[str], session: requests.Session
     }
     data = _get(session, f"https://{wiki}.fandom.com/api.php", params).json()
     results = []
+    no_extract = []
     for page in data.get("query", {}).get("pages", []):
         title = page.get("title", "")
         text = (page.get("extract") or "").strip()
         if title and text:
             results.append({"title": title, "text": text})
+        elif title:
+            no_extract.append(title)
+    return results, no_extract
+
+
+def fetch_wikitext_batch(wiki: str, titles: list[str], session: requests.Session) -> list[dict]:
+    """
+    Fallback: fetch raw wikitext via the revisions API for pages that had no
+    extract, then strip the markup to plain text.
+    """
+    params = {
+        "action": "query",
+        "prop": "revisions",
+        "rvprop": "content",
+        "rvslots": "main",
+        "titles": "|".join(titles),
+        "redirects": "1",
+        "format": "json",
+        "formatversion": "2",
+    }
+    data = _get(session, f"https://{wiki}.fandom.com/api.php", params).json()
+    results = []
+    for page in data.get("query", {}).get("pages", []):
+        title = page.get("title", "")
+        try:
+            wt = page["revisions"][0]["slots"]["main"]["content"]
+        except (KeyError, IndexError, TypeError):
+            continue
+        plain = wikitext_to_plaintext(wt)
+        if title and plain:
+            results.append({"title": title, "text": plain})
     return results
 
 
 def download_fast(wiki: str, titles: list[str], out) -> tuple[int, int]:
-    """Fast batch mode: uses TextExtracts API, 20 pages per request."""
+    """
+    Fast batch mode: TextExtracts API (20 pages/request).
+    Pages with no extract fall back to the revisions API + WikiText stripping.
+    """
     session = _make_session()
     total = len(titles)
     written = skipped = 0
@@ -145,19 +183,31 @@ def download_fast(wiki: str, titles: list[str], out) -> tuple[int, int]:
     for i in range(0, total, batch_size):
         batch = titles[i: i + batch_size]
         try:
-            records = fetch_extracts_batch(wiki, batch, session)
+            records, no_extract = fetch_extracts_batch(wiki, batch, session)
         except Exception as exc:
             print(f"\n  [batch {i}-{i+len(batch)} failed: {exc}]", file=sys.stderr)
             skipped += len(batch)
-        else:
-            for rec in records:
-                _write_record(out, rec)
-                written += 1
-            skipped += len(batch) - len(records)
+            continue
+
+        for rec in records:
+            _write_record(out, rec)
+            written += 1
+
+        # Fallback for pages the TextExtracts API returned nothing for
+        if no_extract:
+            try:
+                fallback = fetch_wikitext_batch(wiki, no_extract, session)
+                for rec in fallback:
+                    _write_record(out, rec)
+                    written += 1
+                skipped += len(no_extract) - len(fallback)
+            except Exception as exc:
+                print(f"\n  [fallback failed: {exc}]", file=sys.stderr)
+                skipped += len(no_extract)
 
         done = min(i + batch_size, total)
         print(f"  {done}/{total}  written={written}  skipped={skipped}", end="\r", flush=True)
-        time.sleep(0.05)  # ~20 batches/s max
+        time.sleep(0.05)
 
     return written, skipped
 
