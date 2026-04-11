@@ -7,4 +7,7 @@ echo Downloading Analog Horror wiki...
 python fandom_downloader.py analog-horror-0
 
 echo.
+echo ----------------------------------------
+echo Done! Press any key to close.
+echo ----------------------------------------
 pause

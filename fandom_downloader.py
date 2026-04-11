@@ -354,11 +354,26 @@ def _write_record(out, record: dict):
 def download_wiki(wiki: str, output_path: str, fast: bool = True):
     mode = "fast (TextExtracts API)" if fast else "slow (?action=edit scraping)"
     print(f"Mode: {mode}")
-    print(f"Enumerating pages on {wiki}.fandom.com ...")
+    print(f"Connecting to {wiki}.fandom.com ...")
 
-    titles = list(iter_all_titles(wiki))
+    try:
+        titles = list(iter_all_titles(wiki))
+    except Exception as exc:
+        print(f"\nERROR: Could not reach the wiki API.")
+        print(f"Details: {exc}")
+        print(f"\nCheck that '{wiki}' is the correct subdomain.")
+        print(f"For example, for https://analog-horror-0.fandom.com the subdomain is: analog-horror-0")
+        return
+
     total = len(titles)
-    print(f"Found {total} pages. Downloading ...")
+    if total == 0:
+        print(f"\nERROR: No pages found on {wiki}.fandom.com")
+        print("The wiki may be empty, private, or the subdomain may be wrong.")
+        return
+
+    print(f"Found {total} pages.")
+    print(f"First few: {titles[:5]}")
+    print(f"Downloading ...")
 
     _fh, out, close_fn = _open_output(output_path)
     try:
