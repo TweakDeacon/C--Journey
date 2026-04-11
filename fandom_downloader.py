@@ -88,14 +88,28 @@ def get_all_page_urls(wiki: str, session) -> list[str]:
                 urls.append(base + href)
         return urls
 
-    # --- Try Local_Sitemap first ---
+    # --- Try Local_Sitemap first (may be paginated) ---
     sitemap_url = f"{base}/wiki/Local_Sitemap"
     print(f"  Trying: {sitemap_url}")
-    resp = _fetch(session, sitemap_url)
-    if resp:
-        urls = _extract_wiki_links(BeautifulSoup(resp.text, "html.parser"))
-        if urls:
-            return urls
+    urls = []
+    next_url = sitemap_url
+    while next_url:
+        resp = _fetch(session, next_url)
+        if not resp:
+            break
+        soup = BeautifulSoup(resp.text, "html.parser")
+        page_urls = _extract_wiki_links(soup)
+        urls += page_urls
+
+        next_url = None
+        for a in soup.find_all("a", href=True):
+            if "next page" in a.get_text(strip=True).lower():
+                next_url = base + a["href"]
+                print(f"  Fetching: {next_url}")
+                break
+
+    if urls:
+        return urls
 
     # --- Fall back to Special:AllPages (paginated) ---
     print(f"  Trying: Special:AllPages (paginated)")
