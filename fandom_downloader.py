@@ -61,10 +61,16 @@ except ImportError:
 
 def _make_session() -> requests.Session:
     s = requests.Session()
-    s.headers["User-Agent"] = (
-        "FandomWikiDownloader/2.0 "
-        "(github.com/GOLEM-lab/fandom-wiki inspired; plain-text archiver)"
-    )
+    # Use a realistic browser User-Agent to avoid bot-detection blocks
+    s.headers.update({
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    })
     return s
 
 
@@ -82,13 +88,40 @@ def _get(session: requests.Session, url: str, params: dict = None, retries: int 
             time.sleep(wait)
 
 
+def login(session: requests.Session, wiki: str, username: str, password: str):
+    """Log in to Fandom so private wikis and protected pages are accessible."""
+    base = f"https://{wiki}.fandom.com/api.php"
+
+    # Step 1: get a login token
+    token_data = session.get(base, params={
+        "action": "query", "meta": "tokens", "type": "login", "format": "json"
+    }, timeout=30).json()
+    token = token_data["query"]["tokens"]["logintoken"]
+
+    # Step 2: log in
+    resp = session.post(base, data={
+        "action": "login",
+        "lgname": username,
+        "lgpassword": password,
+        "lgtoken": token,
+        "format": "json",
+    }, timeout=30).json()
+
+    result = resp.get("login", {}).get("result", "")
+    if result == "Success":
+        print(f"Logged in as {resp['login']['lgusername']}")
+    else:
+        reason = resp.get("login", {}).get("reason", result)
+        print(f"WARNING: Login failed — {reason}")
+        print("Continuing without login (private pages may be inaccessible).")
+
+
 # ---------------------------------------------------------------------------
 # Page enumeration — MediaWiki allpages API
 # ---------------------------------------------------------------------------
 
-def iter_all_titles(wiki: str, namespace: int = 0):
+def iter_all_titles(wiki: str, session: requests.Session, namespace: int = 0):
     """Yield every page title in the main namespace."""
-    session = _make_session()
     base = f"https://{wiki}.fandom.com/api.php"
     params = {
         "action": "query",
@@ -100,6 +133,9 @@ def iter_all_titles(wiki: str, namespace: int = 0):
     }
     while True:
         data = _get(session, base, params).json()
+        if "query" not in data:
+            print(f"\nERROR: Unexpected API response: {data}", file=sys.stderr)
+            break
         for page in data["query"]["allpages"]:
             yield page["title"]
         cont = data.get("continue", {})
@@ -170,12 +206,12 @@ def fetch_wikitext_batch(wiki: str, titles: list[str], session: requests.Session
     return results
 
 
-def download_fast(wiki: str, titles: list[str], out) -> tuple[int, int]:
+def download_fast(wiki: str, titles: list[str], out, session: requests.Session = None) -> tuple[int, int]:
     """
     Fast batch mode: TextExtracts API (20 pages/request).
     Pages with no extract fall back to the revisions API + WikiText stripping.
     """
-    session = _make_session()
+    session = session or _make_session()
     total = len(titles)
     written = skipped = 0
     batch_size = 20
@@ -278,9 +314,9 @@ def wikitext_to_plaintext(wt: str) -> str:
     return wt.strip()
 
 
-def download_slow(wiki: str, titles: list[str], out) -> tuple[int, int]:
+def download_slow(wiki: str, titles: list[str], out, session: requests.Session = None) -> tuple[int, int]:
     """Slow per-page mode: scrapes ?action=edit, parses WikiText with BeautifulSoup."""
-    session = _make_session()
+    session = session or _make_session()
     total = len(titles)
     written = skipped = 0
 
@@ -351,24 +387,33 @@ def _write_record(out, record: dict):
 # Main download orchestration
 # ---------------------------------------------------------------------------
 
-def download_wiki(wiki: str, output_path: str, fast: bool = True):
+def download_wiki(wiki: str, output_path: str, fast: bool = True,
+                  username: str = None, password: str = None):
     mode = "fast (TextExtracts API)" if fast else "slow (?action=edit scraping)"
     print(f"Mode: {mode}")
     print(f"Connecting to {wiki}.fandom.com ...")
 
+    session = _make_session()
+
+    if username and password:
+        login(session, wiki, username, password)
+
     try:
-        titles = list(iter_all_titles(wiki))
+        titles = list(iter_all_titles(wiki, session))
     except Exception as exc:
         print(f"\nERROR: Could not reach the wiki API.")
         print(f"Details: {exc}")
         print(f"\nCheck that '{wiki}' is the correct subdomain.")
         print(f"For example, for https://analog-horror-0.fandom.com the subdomain is: analog-horror-0")
+        if "403" in str(exc):
+            print("\nGot a 403 Forbidden — the wiki may be private.")
+            print("Try again with --username and --password to log in to Fandom.")
         return
 
     total = len(titles)
     if total == 0:
         print(f"\nERROR: No pages found on {wiki}.fandom.com")
-        print("The wiki may be empty, private, or the subdomain may be wrong.")
+        print("The wiki may be private. Try: --username YOUR_NAME --password YOUR_PASS")
         return
 
     print(f"Found {total} pages.")
@@ -378,9 +423,9 @@ def download_wiki(wiki: str, output_path: str, fast: bool = True):
     _fh, out, close_fn = _open_output(output_path)
     try:
         if fast:
-            written, skipped = download_fast(wiki, titles, out)
+            written, skipped = download_fast(wiki, titles, out, session)
         else:
-            written, skipped = download_slow(wiki, titles, out)
+            written, skipped = download_slow(wiki, titles, out, session)
     finally:
         close_fn()
 
@@ -440,14 +485,23 @@ if __name__ == "__main__":
         sys.exit(1)
 
     wiki_name = args[0].lower().strip()
+
+    def _flag_val(name):
+        for i, a in enumerate(args):
+            if a == name and i + 1 < len(args):
+                return args[i + 1]
+        return None
+
     remaining = [a for a in args[1:] if not a.startswith("--")]
     flags     = [a for a in args[1:] if a.startswith("--")]
 
-    fast = "--slow" not in flags  # fast is the default
+    fast     = "--slow" not in flags
+    username = _flag_val("--username")
+    password = _flag_val("--password")
 
     if remaining:
         out_file = remaining[0]
     else:
         out_file = f"{wiki_name}_wiki.jsonl.gz"
 
-    download_wiki(wiki_name, out_file, fast=fast)
+    download_wiki(wiki_name, out_file, fast=fast, username=username, password=password)
