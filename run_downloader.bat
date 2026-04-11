@@ -1,6 +1,6 @@
 @echo off
 echo Installing dependencies...
-pip install requests beautifulsoup4 --quiet
+pip install cloudscraper beautifulsoup4 --quiet
 
 echo.
 echo Downloading Analog Horror wiki...

@@ -36,37 +36,31 @@ import time
 import os
 
 try:
-    import requests
     from bs4 import BeautifulSoup
 except ImportError:
-    sys.exit("Missing dependencies. Run:  pip install requests beautifulsoup4")
+    sys.exit("Missing dependencies. Run:  pip install cloudscraper beautifulsoup4")
+
+try:
+    import cloudscraper
+except ImportError:
+    sys.exit("Missing dependency. Run:  pip install cloudscraper")
 
 
 # ---------------------------------------------------------------------------
-# HTTP session — browser-like headers to avoid blocks
+# HTTP session — cloudscraper bypasses Cloudflare bot protection
 # ---------------------------------------------------------------------------
 
-def _make_session() -> requests.Session:
-    s = requests.Session()
-    s.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    })
-    return s
+def _make_session():
+    return cloudscraper.create_scraper(browser={"browser": "chrome", "platform": "windows"})
 
 
-def _fetch(session: requests.Session, url: str, retries: int = 4):
+def _fetch(session, url: str, retries: int = 4):
     for attempt in range(retries):
         try:
             r = session.get(url, timeout=30)
             r.raise_for_status()
             return r
-        except requests.RequestException as exc:
+        except Exception as exc:
             if attempt == retries - 1:
                 return None
             time.sleep(2 ** attempt)
