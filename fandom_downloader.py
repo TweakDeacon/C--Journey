@@ -2,40 +2,30 @@
 """
 fandom_downloader.py
 
-Downloads every page on a Fandom wiki and saves them as a JSON file.
-
-Based on the GOLEM-lab/fandom-wiki library approach
-(https://github.com/GOLEM-lab/fandom-wiki), with two download modes:
-
-  --fast  (default) Batch API mode: fetches 20 pages per request using the
-          MediaWiki TextExtracts API. Best for large wikis with thousands of
-          pages. Gives clean plain text directly.
-
-  --slow  Per-page mode: fetches each page's ?action=edit URL and parses the
-          WikiText out of the HTML with BeautifulSoup — exactly the technique
-          used by fandom_extract.py in the GOLEM-lab library. Then strips the
-          WikiText markup to plain text. Slower but extracts the raw source.
-
-Output formats:
-  .json       Plain JSON array  [ {"title": "...", "text": "..."}, ... ]
-  .jsonl      JSON Lines        one JSON object per line
-  .jsonl.gz   Gzip-compressed JSON Lines  (smallest file size)
+Scrapes every page on a Fandom wiki and saves the text as a compact file.
+Works by crawling Special:AllPages to discover every page, then visiting
+each one and pulling the article text directly from the HTML — no API key
+or authentication needed.
 
 Dependencies:
     pip install requests beautifulsoup4
 
 Usage:
-    python3 fandom_downloader.py <wiki-subdomain> [output-file] [--fast|--slow]
+    python3 fandom_downloader.py <wiki-subdomain> [output-file]
 
 Examples:
-    python3 fandom_downloader.py creepypasta
-    python3 fandom_downloader.py creepypasta creepypasta.json
-    python3 fandom_downloader.py minecraft  minecraft.jsonl.gz  --slow
-    python3 fandom_downloader.py starwars   starwars.json       --fast
+    python3 fandom_downloader.py analog-horror-0
+    python3 fandom_downloader.py creepypasta  creepypasta.jsonl.gz
+    python3 fandom_downloader.py minecraft    minecraft.json
 
-Reading / searching the output:
-    python3 fandom_downloader.py --read creepypasta_wiki.json
-    python3 fandom_downloader.py --read creepypasta_wiki.json "slender man"
+Output formats (detected from file extension):
+    .jsonl.gz   Gzip-compressed JSON Lines — smallest size (default)
+    .jsonl      Plain JSON Lines
+    .json       Plain JSON array
+
+Reading the output:
+    python3 fandom_downloader.py --read analog-horror-0_wiki.jsonl.gz
+    python3 fandom_downloader.py --read analog-horror-0_wiki.jsonl.gz "mandela"
 """
 
 import sys
@@ -49,19 +39,15 @@ try:
     import requests
     from bs4 import BeautifulSoup
 except ImportError:
-    sys.exit(
-        "Missing dependencies. Install them with:\n"
-        "    pip install requests beautifulsoup4"
-    )
+    sys.exit("Missing dependencies. Run:  pip install requests beautifulsoup4")
 
 
 # ---------------------------------------------------------------------------
-# Shared HTTP helper
+# HTTP session — browser-like headers to avoid blocks
 # ---------------------------------------------------------------------------
 
 def _make_session() -> requests.Session:
     s = requests.Session()
-    # Use a realistic browser User-Agent to avoid bot-detection blocks
     s.headers.update({
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -74,282 +60,125 @@ def _make_session() -> requests.Session:
     return s
 
 
-def _get(session: requests.Session, url: str, params: dict = None, retries: int = 5):
+def _fetch(session: requests.Session, url: str, retries: int = 4):
     for attempt in range(retries):
         try:
-            r = session.get(url, params=params or {}, timeout=30)
+            r = session.get(url, timeout=30)
             r.raise_for_status()
             return r
         except requests.RequestException as exc:
             if attempt == retries - 1:
-                raise
-            wait = 2 ** attempt
-            print(f"  [retry {attempt+1} in {wait}s: {exc}]", file=sys.stderr)
-            time.sleep(wait)
-
-
-def login(session: requests.Session, wiki: str, username: str, password: str):
-    """Log in to Fandom so private wikis and protected pages are accessible."""
-    base = f"https://{wiki}.fandom.com/api.php"
-
-    # Step 1: get a login token
-    token_data = session.get(base, params={
-        "action": "query", "meta": "tokens", "type": "login", "format": "json"
-    }, timeout=30).json()
-    token = token_data["query"]["tokens"]["logintoken"]
-
-    # Step 2: log in
-    resp = session.post(base, data={
-        "action": "login",
-        "lgname": username,
-        "lgpassword": password,
-        "lgtoken": token,
-        "format": "json",
-    }, timeout=30).json()
-
-    result = resp.get("login", {}).get("result", "")
-    if result == "Success":
-        print(f"Logged in as {resp['login']['lgusername']}")
-    else:
-        reason = resp.get("login", {}).get("reason", result)
-        print(f"WARNING: Login failed — {reason}")
-        print("Continuing without login (private pages may be inaccessible).")
+                return None
+            time.sleep(2 ** attempt)
+    return None
 
 
 # ---------------------------------------------------------------------------
-# Page enumeration — MediaWiki allpages API
+# Step 1 — discover every page URL via Special:AllPages
 # ---------------------------------------------------------------------------
 
-def iter_all_titles(wiki: str, session: requests.Session, namespace: int = 0):
-    """Yield every page title in the main namespace."""
-    base = f"https://{wiki}.fandom.com/api.php"
-    params = {
-        "action": "query",
-        "list": "allpages",
-        "apnamespace": str(namespace),
-        "aplimit": "500",
-        "format": "json",
-        "formatversion": "2",
-    }
-    while True:
-        data = _get(session, base, params).json()
-        if "query" not in data:
-            print(f"\nERROR: Unexpected API response: {data}", file=sys.stderr)
+def get_all_page_urls(wiki: str, session: requests.Session) -> list[str]:
+    """
+    Scrape Special:AllPages (and its continuation pages) to get every
+    article URL on the wiki without touching the API.
+    """
+    base = f"https://{wiki}.fandom.com"
+    urls = []
+    next_url = f"{base}/wiki/Special:AllPages"
+
+    while next_url:
+        print(f"  Fetching page list: {next_url}")
+        resp = _fetch(session, next_url)
+        if resp is None:
+            print(f"  Could not reach {next_url}")
             break
-        for page in data["query"]["allpages"]:
-            yield page["title"]
-        cont = data.get("continue", {})
-        if not cont:
-            break
-        params.update(cont)
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # All page links are inside .mw-allpages-body
+        body = soup.find("div", class_="mw-allpages-body")
+        if body:
+            for a in body.find_all("a", href=True):
+                href = a["href"]
+                if href.startswith("/wiki/"):
+                    urls.append(base + href)
+
+        # Look for a "Next page" link
+        next_url = None
+        for a in soup.find_all("a", href=True):
+            if "Next page" in a.get_text() or "next page" in a.get_text():
+                next_url = base + a["href"]
+                break
+
+    return urls
 
 
 # ---------------------------------------------------------------------------
-# FAST MODE — TextExtracts API (20 pages per request)
+# Step 2 — scrape article text from a single page
 # ---------------------------------------------------------------------------
 
-def fetch_extracts_batch(wiki: str, titles: list[str], session: requests.Session) -> tuple[list[dict], list[str]]:
-    """
-    Fetch plain text for up to 20 pages at once via the TextExtracts API.
-    Returns (records_with_text, titles_with_no_extract).
-    """
-    params = {
-        "action": "query",
-        "prop": "extracts",
-        "exlimit": str(len(titles)),
-        "explaintext": "1",
-        "exsectionformat": "plain",
-        "titles": "|".join(titles),
-        "redirects": "1",
-        "format": "json",
-        "formatversion": "2",
-    }
-    data = _get(session, f"https://{wiki}.fandom.com/api.php", params).json()
-    results = []
-    no_extract = []
-    for page in data.get("query", {}).get("pages", []):
-        title = page.get("title", "")
-        text = (page.get("extract") or "").strip()
-        if title and text:
-            results.append({"title": title, "text": text})
-        elif title:
-            no_extract.append(title)
-    return results, no_extract
+# Fandom classes that are clutter, not content
+_JUNK_CLASSES = re.compile(
+    r"(navbox|toc|infobox|noprint|mw-editsection|"
+    r"reference|reflist|thumb|gallery|wikia-menu|"
+    r"page-header|global-navigation|fandom-sticky)",
+    re.IGNORECASE,
+)
 
 
-def fetch_wikitext_batch(wiki: str, titles: list[str], session: requests.Session) -> list[dict]:
-    """
-    Fallback: fetch raw wikitext via the revisions API for pages that had no
-    extract, then strip the markup to plain text.
-    """
-    params = {
-        "action": "query",
-        "prop": "revisions",
-        "rvprop": "content",
-        "rvslots": "main",
-        "titles": "|".join(titles),
-        "redirects": "1",
-        "format": "json",
-        "formatversion": "2",
-    }
-    data = _get(session, f"https://{wiki}.fandom.com/api.php", params).json()
-    results = []
-    for page in data.get("query", {}).get("pages", []):
-        title = page.get("title", "")
-        try:
-            wt = page["revisions"][0]["slots"]["main"]["content"]
-        except (KeyError, IndexError, TypeError):
-            continue
-        plain = wikitext_to_plaintext(wt)
-        if title and plain:
-            results.append({"title": title, "text": plain})
-    return results
-
-
-def download_fast(wiki: str, titles: list[str], out, session: requests.Session = None) -> tuple[int, int]:
-    """
-    Fast batch mode: TextExtracts API (20 pages/request).
-    Pages with no extract fall back to the revisions API + WikiText stripping.
-    """
-    session = session or _make_session()
-    total = len(titles)
-    written = skipped = 0
-    batch_size = 20
-
-    for i in range(0, total, batch_size):
-        batch = titles[i: i + batch_size]
-        try:
-            records, no_extract = fetch_extracts_batch(wiki, batch, session)
-        except Exception as exc:
-            print(f"\n  [batch {i}-{i+len(batch)} failed: {exc}]", file=sys.stderr)
-            skipped += len(batch)
-            continue
-
-        for rec in records:
-            _write_record(out, rec)
-            written += 1
-
-        # Fallback for pages the TextExtracts API returned nothing for
-        if no_extract:
-            try:
-                fallback = fetch_wikitext_batch(wiki, no_extract, session)
-                for rec in fallback:
-                    _write_record(out, rec)
-                    written += 1
-                skipped += len(no_extract) - len(fallback)
-            except Exception as exc:
-                print(f"\n  [fallback failed: {exc}]", file=sys.stderr)
-                skipped += len(no_extract)
-
-        done = min(i + batch_size, total)
-        print(f"  {done}/{total}  written={written}  skipped={skipped}", end="\r", flush=True)
-        time.sleep(0.05)
-
-    return written, skipped
-
-
-# ---------------------------------------------------------------------------
-# SLOW MODE — ?action=edit scraping (GOLEM-lab library technique)
-# ---------------------------------------------------------------------------
-
-def fetch_wikitext(wiki: str, title: str, session: requests.Session) -> str | None:
-    """
-    Fetch WikiText source via the ?action=edit URL.
-
-    This is the exact technique used by the GOLEM-lab/fandom-wiki library
-    (download_fandom_data.sh + fandom_extract.py):
-      curl "https://wiki.fandom.com/wiki/Page?action=edit" | fandom_extract.py
-
-    fandom_extract.py logic reproduced here:
-      - "legacy" layout: WikiText is in <textarea id="wpTextbox1">
-      - "modern" layout: WikiText is in a <div role="textbox"> as <p> tags
-    """
-    url = f"https://{wiki}.fandom.com/wiki/{requests.utils.quote(title, safe='')}?action=edit"
-    try:
-        resp = _get(session, url)
-    except requests.RequestException:
+def scrape_page(url: str, session: requests.Session) -> dict | None:
+    resp = _fetch(session, url)
+    if resp is None:
         return None
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Legacy layout (fandom_extract._parse_wtsource_legacy)
-    text_box = soup.find(id="wpTextbox1")
-    if text_box and "dummyTextbox" not in text_box.get("class", []):
-        return text_box.string or ""
+    # Article title
+    title_tag = (
+        soup.find("h1", class_="page-header__title")
+        or soup.find("h1", id="firstHeading")
+        or soup.find("h1")
+    )
+    title = title_tag.get_text(strip=True) if title_tag else url.split("/wiki/")[-1].replace("_", " ")
 
-    # Modern layout (fandom_extract._parse_wtsource_modern)
-    textbox = soup.find(role="textbox")
-    if textbox:
-        return "\n".join(p.get_text() for p in textbox.find_all("p"))
+    # Main article body
+    content = soup.find("div", class_="mw-parser-output")
+    if not content:
+        return None
 
-    return None
+    # Remove junk elements in-place
+    for tag in content.find_all(True):
+        classes = " ".join(tag.get("class") or [])
+        if _JUNK_CLASSES.search(classes):
+            tag.decompose()
 
+    # Also remove script / style tags
+    for tag in content.find_all(["script", "style", "noscript"]):
+        tag.decompose()
 
-# Strip WikiText markup to plain text
-# Patterns inspired by wikitext_extract.py and wikitext_regex.py (GOLEM-lab)
-_WT_PATTERNS = [
-    (re.compile(r"<!--.*?-->", re.DOTALL), ""),
-    (re.compile(r"<ref[^>]*/\s*>", re.IGNORECASE), ""),
-    (re.compile(r"<ref[^>]*>.*?</ref>", re.DOTALL | re.IGNORECASE), ""),
-    (re.compile(r"<[^>]+>"), ""),
-    (re.compile(r"\[\[(?:File|Image):[^\]]+\]\]", re.IGNORECASE), ""),
-    (re.compile(r"\[\[[^\]|]+\|([^\]]+)\]\]"), r"\1"),
-    (re.compile(r"\[\[([^\]]+)\]\]"), r"\1"),
-    (re.compile(r"'{2,3}"), ""),
-    (re.compile(r"^={1,6}\s*(.*?)\s*={1,6}", re.MULTILINE), r"\1"),
-    (re.compile(r"^\s*[*#:;]+\s?", re.MULTILINE), ""),
-    (re.compile(r"\{\|.*?\|\}", re.DOTALL), ""),
-    (re.compile(r"\{\{[^{}]*\}\}"), ""),
-    (re.compile(r"\{\{[^{}]*\}\}"), ""),
-    (re.compile(r"\{\{[^{}]*\}\}"), ""),
-    (re.compile(r"https?://\S+"), ""),
-    (re.compile(r"[ \t]+"), " "),
-    (re.compile(r"\n{3,}"), "\n\n"),
-]
+    text = content.get_text(separator="\n")
+    # Collapse excessive blank lines and whitespace
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = text.strip()
 
+    if not text:
+        return None
 
-def wikitext_to_plaintext(wt: str) -> str:
-    for pat, sub in _WT_PATTERNS:
-        wt = pat.sub(sub, wt)
-    return wt.strip()
-
-
-def download_slow(wiki: str, titles: list[str], out, session: requests.Session = None) -> tuple[int, int]:
-    """Slow per-page mode: scrapes ?action=edit, parses WikiText with BeautifulSoup."""
-    session = session or _make_session()
-    total = len(titles)
-    written = skipped = 0
-
-    for i, title in enumerate(titles, 1):
-        wt = fetch_wikitext(wiki, title, session)
-        if wt:
-            plain = wikitext_to_plaintext(wt)
-            if plain:
-                _write_record(out, {"title": title, "text": plain})
-                written += 1
-            else:
-                skipped += 1
-        else:
-            skipped += 1
-
-        print(f"  {i}/{total}  written={written}  skipped={skipped}", end="\r", flush=True)
-        time.sleep(0.2)
-
-    return written, skipped
+    return {"title": title, "text": text}
 
 
 # ---------------------------------------------------------------------------
-# Output helpers — supports .json, .jsonl, .jsonl.gz
+# Output helpers
 # ---------------------------------------------------------------------------
 
 class _JsonArrayWriter:
-    """Writes a JSON array incrementally to avoid loading everything into memory."""
     def __init__(self, f):
         self._f = f
         self._first = True
         self._f.write("[\n")
 
-    def write(self, record: dict):
+    def write(self, record):
         if not self._first:
             self._f.write(",\n")
         self._f.write(json.dumps(record, ensure_ascii=False))
@@ -360,23 +189,21 @@ class _JsonArrayWriter:
 
 
 def _open_output(path: str):
-    """Return (file_handle, writer_object, closer_fn)."""
     if path.endswith(".jsonl.gz"):
         fh = gzip.open(path, "wt", encoding="utf-8")
-        return fh, fh, fh.close          # jsonl: write directly
+        return fh, fh, fh.close
     elif path.endswith(".json"):
         fh = open(path, "w", encoding="utf-8")
-        writer = _JsonArrayWriter(fh)
+        w = _JsonArrayWriter(fh)
         def close():
-            writer.close()
-            fh.close()
-        return fh, writer, close
-    else:  # .jsonl (plain)
+            w.close(); fh.close()
+        return fh, w, close
+    else:
         fh = open(path, "w", encoding="utf-8")
         return fh, fh, fh.close
 
 
-def _write_record(out, record: dict):
+def _write(out, record):
     if isinstance(out, _JsonArrayWriter):
         out.write(record)
     else:
@@ -384,74 +211,64 @@ def _write_record(out, record: dict):
 
 
 # ---------------------------------------------------------------------------
-# Main download orchestration
+# Main
 # ---------------------------------------------------------------------------
 
-def download_wiki(wiki: str, output_path: str, fast: bool = True,
-                  username: str = None, password: str = None):
-    mode = "fast (TextExtracts API)" if fast else "slow (?action=edit scraping)"
-    print(f"Mode: {mode}")
-    print(f"Connecting to {wiki}.fandom.com ...")
-
+def download_wiki(wiki: str, output_path: str):
     session = _make_session()
 
-    if username and password:
-        login(session, wiki, username, password)
+    print(f"Finding all pages on {wiki}.fandom.com ...")
+    urls = get_all_page_urls(wiki, session)
 
-    try:
-        titles = list(iter_all_titles(wiki, session))
-    except Exception as exc:
-        print(f"\nERROR: Could not reach the wiki API.")
-        print(f"Details: {exc}")
-        print(f"\nCheck that '{wiki}' is the correct subdomain.")
-        print(f"For example, for https://analog-horror-0.fandom.com the subdomain is: analog-horror-0")
-        if "403" in str(exc):
-            print("\nGot a 403 Forbidden — the wiki may be private.")
-            print("Try again with --username and --password to log in to Fandom.")
+    if not urls:
+        print("\nNo pages found. The wiki may be private or the subdomain may be wrong.")
+        print(f"Tried: https://{wiki}.fandom.com/wiki/Special:AllPages")
         return
 
-    total = len(titles)
-    if total == 0:
-        print(f"\nERROR: No pages found on {wiki}.fandom.com")
-        print("The wiki may be private. Try: --username YOUR_NAME --password YOUR_PASS")
-        return
-
-    print(f"Found {total} pages.")
-    print(f"First few: {titles[:5]}")
-    print(f"Downloading ...")
+    # De-duplicate (Special:AllPages can list the same page twice near boundaries)
+    urls = list(dict.fromkeys(urls))
+    total = len(urls)
+    print(f"Found {total} pages. Scraping text ...")
 
     _fh, out, close_fn = _open_output(output_path)
+    written = skipped = 0
+
     try:
-        if fast:
-            written, skipped = download_fast(wiki, titles, out, session)
-        else:
-            written, skipped = download_slow(wiki, titles, out, session)
+        for i, url in enumerate(urls, 1):
+            record = scrape_page(url, session)
+            if record:
+                _write(out, record)
+                written += 1
+            else:
+                skipped += 1
+
+            print(f"  {i}/{total}  saved={written}  skipped={skipped}  {url.split('/wiki/')[-1][:40]}",
+                  end="\r", flush=True)
+            time.sleep(0.15)  # polite rate limit
     finally:
         close_fn()
 
     print(f"\nDone. {written} pages saved to: {output_path}")
     if skipped:
-        print(f"Skipped {skipped} empty or unparseable pages.")
-
+        print(f"Skipped {skipped} pages (no readable content).")
     size = os.path.getsize(output_path)
-    label = f"{size/1024**2:.2f} MB" if size >= 1024**2 else f"{size/1024:.1f} KB"
-    print(f"File size: {label}")
+    print(f"File size: {size/1024**2:.2f} MB" if size >= 1024**2 else f"File size: {size/1024:.1f} KB")
 
 
 # ---------------------------------------------------------------------------
-# Reader — browse / search the saved dump
+# Reader
 # ---------------------------------------------------------------------------
 
 def read_dump(path: str, search: str = None):
     def _iter():
-        if path.endswith(".json"):
-            with open(path, encoding="utf-8") as f:
-                for rec in json.load(f):
-                    yield rec
-        elif path.endswith(".jsonl.gz"):
+        if path.endswith(".jsonl.gz"):
             with gzip.open(path, "rt", encoding="utf-8") as f:
                 for line in f:
                     yield json.loads(line)
+        elif path.endswith(".json"):
+            with open(path, encoding="utf-8") as f:
+                for rec in json.load(f):
+                    yield rec
         else:
             with open(path, encoding="utf-8") as f:
                 for line in f:
@@ -459,10 +276,9 @@ def read_dump(path: str, search: str = None):
 
     count = 0
     for rec in _iter():
-        title, text = rec["title"], rec["text"]
-        if search is None or search.lower() in title.lower() or search.lower() in text.lower():
-            print(f"\n{'='*60}\n  {title}\n{'='*60}")
-            print(text[:600] + (" [...]" if len(text) > 600 else ""))
+        if search is None or search.lower() in rec["title"].lower() or search.lower() in rec["text"].lower():
+            print(f"\n{'='*60}\n  {rec['title']}\n{'='*60}")
+            print(rec["text"][:600] + (" [...]" if len(rec["text"]) > 600 else ""))
             count += 1
     print(f"\n{count} page(s) matched.")
 
@@ -480,28 +296,10 @@ if __name__ == "__main__":
         read_dump(args[1], args[2] if len(args) >= 3 else None)
         sys.exit(0)
 
-    if not args or args[0].startswith("-"):
+    if not args:
         print(__doc__)
         sys.exit(1)
 
     wiki_name = args[0].lower().strip()
-
-    def _flag_val(name):
-        for i, a in enumerate(args):
-            if a == name and i + 1 < len(args):
-                return args[i + 1]
-        return None
-
-    remaining = [a for a in args[1:] if not a.startswith("--")]
-    flags     = [a for a in args[1:] if a.startswith("--")]
-
-    fast     = "--slow" not in flags
-    username = _flag_val("--username")
-    password = _flag_val("--password")
-
-    if remaining:
-        out_file = remaining[0]
-    else:
-        out_file = f"{wiki_name}_wiki.jsonl.gz"
-
-    download_wiki(wiki_name, out_file, fast=fast, username=username, password=password)
+    out_file = args[1] if len(args) >= 2 else f"{wiki_name}_wiki.jsonl.gz"
+    download_wiki(wiki_name, out_file)
