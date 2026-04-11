@@ -131,11 +131,13 @@ def scrape_page(url: str, session: requests.Session) -> dict | None:
     if not content:
         return None
 
-    # Remove junk elements in-place
-    for tag in content.find_all(True):
-        classes = " ".join(tag.get("class") or [])
-        if _JUNK_CLASSES.search(classes):
-            tag.decompose()
+    # Collect junk elements first, then remove (avoids iterator breakage)
+    junk = [
+        tag for tag in content.find_all(True)
+        if tag and hasattr(tag, "get") and _JUNK_CLASSES.search(" ".join(tag.get("class") or []))
+    ]
+    for tag in junk:
+        tag.decompose()
 
     # Also remove script / style tags
     for tag in content.find_all(["script", "style", "noscript"]):
