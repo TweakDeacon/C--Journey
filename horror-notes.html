@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0b0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DreadLog">
 <title>Dread Log — Horror Short Film Notes</title>
 <style>
   :root {
@@ -226,6 +230,34 @@
     pointer-events: none; transition: opacity 0.25s; z-index: 50;
   }
   .flash.show { opacity: 1; }
+
+  /* ---------- Phone layout ---------- */
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; min-height: 0; }
+    header { padding: 10px 14px; }
+    header .tagline { display: none; }
+    aside {
+      width: 100%; border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+    #filmList {
+      flex-direction: row; overflow-x: auto; overflow-y: hidden;
+      padding-bottom: 6px; -webkit-overflow-scrolling: touch;
+    }
+    .film-card { min-width: 210px; max-width: 240px; flex-shrink: 0; }
+    .empty-lib { width: 100%; padding: 12px; }
+    main { padding: 12px; }
+    .film-meta { grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
+    .source-row input[type="text"] { min-width: 100%; }
+    .transport .hint { display: none; }
+    .btn { padding: 10px 14px; }   /* bigger touch targets */
+    .btn.small { padding: 7px 11px; }
+    .scare-tag { padding: 7px 13px; }
+    .note-compose { flex-direction: column; }
+    .compose-btns { flex-direction: row; }
+    .compose-btns .btn { flex: 1; }
+  }
 </style>
 </head>
 <body>
