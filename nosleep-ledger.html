@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#090b12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NoSleep Ledger">
+<title>NoSleep Ledger — r/nosleep story ratings</title>
+<style>
+  :root {
+    --bg: #090b12;
+    --bg2: #0f1320;
+    --panel: #141a2b;
+    --panel2: #1b2237;
+    --border: #29324c;
+    --text: #e6e8f4;
+    --muted: #8b93b0;
+    --moon: #8b9cff;      /* accent: moonlight indigo */
+    --glow: #5ad1c4;      /* barcode high / positive */
+    --amber: #e8b45a;
+    --warn: #e0607a;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 500px at 80% -10%, #10152400, #0b0e18 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
+  a { color: var(--moon); }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    background: linear-gradient(180deg, #0d1120, var(--bg));
+    border-bottom: 1px solid var(--border);
+  }
+  header .logo { font-size: 1.4rem; }
+  header h1 { font-size: 1.1rem; }
+  header h1 span { color: var(--moon); font-weight: 400; }
+  header .tagline { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
+
+  .layout { display: flex; min-height: calc(100vh - 57px); }
+
+  /* ---------- Sidebar ---------- */
+  aside {
+    width: 330px; flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow-y: auto;
+  }
+  .btn {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 9px 12px; cursor: pointer; font-size: 0.88rem;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: #232c46; border-color: #47547e; }
+  .btn.primary { background: #2a2f63; border-color: var(--moon); }
+  .btn.primary:hover { background: #343b7e; }
+  .btn.small { padding: 5px 10px; font-size: 0.78rem; border-radius: 7px; }
+  .btn.danger:hover { background: #3a1f2b; border-color: var(--warn); }
+
+  .lib-head { display: flex; align-items: center; justify-content: space-between; }
+  .lib-head h2 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  #sortSelect {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; padding: 4px 6px; font-size: 0.78rem; max-width: 165px;
+  }
+
+  /* range-per-axis stats panel */
+  .stats {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 11px 12px;
+  }
+  .stats h3 { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 9px; }
+  .stat-row { display: grid; grid-template-columns: 74px 1fr 30px; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .stat-row .sname { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+  .stat-row.wide .sname { color: var(--glow); font-weight: 600; }
+  .rangebar { position: relative; height: 8px; background: var(--bg); border-radius: 4px; border: 1px solid var(--border); }
+  .rangebar .span {
+    position: absolute; top: -1px; bottom: -1px; border-radius: 4px;
+    background: linear-gradient(90deg, #46508a, var(--moon));
+  }
+  .stat-row.wide .rangebar .span { background: linear-gradient(90deg, #2f6b64, var(--glow)); }
+  .stat-row .smean { font-size: 0.72rem; color: var(--muted); font-family: "Consolas", monospace; text-align: right; }
+  .stats .caption { font-size: 0.68rem; color: var(--muted); line-height: 1.4; margin-top: 8px; }
+  .stats .caption b { color: var(--glow); }
+
+  #storyList { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .story-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; cursor: pointer; transition: border-color 0.15s;
+    position: relative;
+  }
+  .story-card:hover { border-color: #47547e; }
+  .story-card.active { border-color: var(--moon); box-shadow: 0 0 0 1px var(--moon); }
+  .story-card .rank { position: absolute; top: 9px; right: 11px; font-size: 0.7rem; color: var(--muted); }
+  .story-card .title { font-weight: 600; font-size: 0.9rem; padding-right: 28px; line-height: 1.25; }
+  .story-card .sub { color: var(--muted); font-size: 0.74rem; margin-top: 2px; }
+  .card-foot { display: flex; align-items: center; gap: 9px; margin-top: 8px; }
+  .composite {
+    font-weight: 700; font-size: 0.9rem; font-family: "Consolas", monospace;
+    padding: 1px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border);
+  }
+  .composite.hi { color: var(--glow); }
+  .composite.mid { color: var(--amber); }
+  .composite.lo { color: var(--warn); }
+  .frame-dot { font-size: 0.68rem; color: var(--muted); }
+  .frame-dot.broken { color: var(--warn); }
+
+  /* barcode */
+  .barcode { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+  .barcode.lg { height: 42px; gap: 5px; }
+  .barcode .bar {
+    width: 6px; border-radius: 2px 2px 0 0; background: var(--moon);
+    min-height: 3px; transition: height 0.15s;
+  }
+  .barcode.lg .bar { width: 11px; }
+  .barcode .bar.na { background: #2a3350; }
+
+  .io-row { display: flex; gap: 8px; }
+  .io-row .btn { flex: 1; }
+  .empty-lib { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 22px 10px; }
+
+  /* ---------- Main editor ---------- */
+  main { flex: 1; padding: 18px 22px; overflow-y: auto; min-width: 0; }
+  .welcome { color: var(--muted); max-width: 620px; margin: 40px auto; line-height: 1.7; }
+  .welcome h2 { color: var(--text); margin-bottom: 12px; }
+  .welcome li { margin-left: 20px; margin-top: 7px; }
+  .welcome .axis-name { color: var(--moon); font-weight: 600; }
+  .welcome kbd { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 0.85em; }
+
+  .story-meta { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .field label { display: block; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .field input, .field textarea {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--moon); }
+  .url-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
+  .url-row .field { flex: 1; }
+  .open-link {
+    display: inline-block; padding: 8px 14px; border-radius: 8px; text-decoration: none;
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text); font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .open-link:hover { border-color: var(--moon); }
+  .open-link.disabled { opacity: 0.4; pointer-events: none; }
+
+  .work-grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+  @media (max-width: 1080px) { .work-grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .panel > h3 { font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .panel > .sub3 { font-size: 0.76rem; color: var(--muted); margin-bottom: 14px; line-height: 1.4; }
+
+  /* axis scoring */
+  .axis { margin-bottom: 15px; }
+  .axis-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .axis-title { font-size: 0.92rem; font-weight: 600; }
+  .axis-poles { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .axis-poles .lo-pole { color: var(--warn); }
+  .axis-poles .hi-pole { color: var(--glow); }
+  .segs { display: flex; gap: 6px; margin-top: 7px; }
+  .seg {
+    flex: 1; height: 34px; border-radius: 7px; cursor: pointer;
+    background: var(--bg2); border: 1px solid var(--border); color: var(--muted);
+    display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 600;
+    transition: all 0.12s; user-select: none;
+  }
+  .seg:hover { border-color: var(--moon); color: var(--text); }
+  .seg.on { background: #2a2f63; border-color: var(--moon); color: #fff; }
+  .seg.on.filled { background: linear-gradient(180deg, #343b7e, #262b57); }
+
+  .frame-toggle { display: flex; align-items: center; gap: 10px; margin: 4px 0 18px; padding: 10px 12px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; }
+  .frame-toggle .ft-label { flex: 1; }
+  .frame-toggle .ft-label .t { font-size: 0.88rem; font-weight: 600; }
+  .frame-toggle .ft-label .d { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .switch button {
+    background: var(--bg); color: var(--muted); border: none; padding: 6px 12px; cursor: pointer; font-size: 0.8rem;
+  }
+  .switch button.on { background: #2a2f63; color: #fff; }
+  .switch button.on.broken { background: #3a1f2b; color: var(--warn); }
+
+  /* composite readout */
+  .composite-box {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+  }
+  .composite-box .num { font-size: 1.9rem; font-weight: 800; font-family: "Consolas", monospace; }
+  .composite-box .num.hi { color: var(--glow); }
+  .composite-box .num.mid { color: var(--amber); }
+  .composite-box .num.lo { color: var(--warn); }
+  .composite-box .outof { color: var(--muted); font-size: 0.82rem; }
+  .barcode-wrap { display: flex; align-items: flex-end; gap: 12px; margin: 14px 0 4px; }
+  .barcode-wrap .cap { font-size: 0.7rem; color: var(--muted); line-height: 1.3; }
+
+  .story-actions { display: flex; gap: 8px; margin-top: 18px; }
+
+  .flash {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); border: 1px solid var(--moon); color: var(--text);
+    border-radius: 8px; padding: 8px 18px; font-size: 0.85rem; opacity: 0;
+    pointer-events: none; transition: opacity 0.25s; z-index: 50;
+  }
+  .flash.show { opacity: 1; }
+
+  /* ---------- Phone ---------- */
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; }
+    header { padding: 10px 14px; }
+    header .tagline { display: none; }
+    aside { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 12px; }
+    .story-meta { grid-template-columns: 1fr; }
+    .url-row { flex-direction: column; align-items: stretch; }
+    .open-link { text-align: center; }
+    .seg { height: 42px; }   /* bigger touch targets */
+    .btn { padding: 11px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🌙</div>
+  <h1>NoSleep <span>Ledger</span></h1>
+  <div class="tagline">seven axes for r/nosleep — one click each, saved in your browser</div>
+</header>
+
+<div class="layout">
+  <aside>
+    <button class="btn primary" id="newBtn">＋ New Story</button>
+
+    <div class="stats" id="statsPanel"></div>
+
+    <div class="lib-head">
+      <h2>Library</h2>
+      <select id="sortSelect" title="Sort library">
+        <option value="composite">Sort: Composite</option>
+        <option value="hook">Sort: Hook</option>
+        <option value="voice">Sort: Voice</option>
+        <option value="restraint">Sort: Restraint</option>
+        <option value="escalation">Sort: Escalation</option>
+        <option value="concept">Sort: Concept</option>
+        <option value="landing">Sort: Landing</option>
+        <option value="residue">Sort: Residue</option>
+        <option value="recent">Recently updated</option>
+        <option value="title">Title A–Z</option>
+      </select>
+    </div>
+    <ul id="storyList"></ul>
+
+    <div class="io-row">
+      <button class="btn small" id="exportJsonBtn" title="Download library as JSON (backup)">⬇ JSON</button>
+      <button class="btn small" id="exportMdBtn" title="Download as Markdown">⬇ Markdown</button>
+      <button class="btn small" id="importBtn" title="Load library from JSON">⬆ Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+
+  <main id="main"></main>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+"use strict";
+
+/* ================= Model ================= */
+const STORE_KEY = "nosleepledger.v1";
+
+/* Seven axes. Poles describe what a 1 vs a 5 means, so the score is a judgement, not a vibe. */
+const AXES = [
+  { key: "hook",       label: "Hook",       lo: "scroll past",        hi: "stops the feed",
+    desc: "Title + first 100 words. It's a feed — that's the whole pitch." },
+  { key: "voice",      label: "Voice",      lo: "writer performing",  hi: "person recounting",
+    desc: "Does it read as someone who lived it, or someone typing horror?" },
+  { key: "restraint",  label: "Restraint",  lo: "explains everything", hi: "leaves the wound open",
+    desc: "What it refuses to explain. The gap is where the dread lives." },
+  { key: "escalation", label: "Escalation", lo: "flat / repetitive",  hi: "each wrong thing worsens the next",
+    desc: "Does the pressure compound, or just repeat louder?" },
+  { key: "concept",    label: "Concept",    lo: "reskinned formula",  hi: "genuinely fresh",
+    desc: "New idea, or a familiar one wearing a hat?" },
+  { key: "landing",    label: "Landing",    lo: "fumbles the dismount", hi: "sticks it",
+    desc: "nosleep's chronic failure: stops dead, over-resolves, or unearned twist." },
+  { key: "residue",    label: "Residue",    lo: "gone by the next post", hi: "still there tomorrow",
+    desc: "What's left after you close the tab." }
+];
+
+let state = load();
+let activeId = state.stories.length ? state.stories[0].id : null;
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.stories)) return d;
+    }
+  } catch (e) { console.warn("load failed", e); }
+  return { stories: [] };
+}
+
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch (e) { flash("⚠ Could not save (storage full?)"); }
+  }, 150);
+}
+
+function newStory() {
+  const scores = {};
+  AXES.forEach(a => scores[a.key] = null);
+  return {
+    id: "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: "", author: "", url: "",
+    frameIntact: true,          // binary tag, not an axis
+    scores,
+    notes: "",
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+}
+
+function getStory(id) { return state.stories.find(s => s.id === id); }
+
+function composite(story) {
+  const vals = AXES.map(a => story.scores[a.key]).filter(v => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function touch(story) { story.updatedAt = Date.now(); save(); }
+
+/* ================= Utils ================= */
+function compClass(n) { return n >= 4 ? "hi" : n >= 2.75 ? "mid" : "lo"; }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+let flashTimer = null;
+function flash(msg) {
+  const el = document.getElementById("flash");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
+}
+function isNoSleepUrl(u) { return /^https?:\/\//i.test(u); }
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* barcode: seven bars, height ∝ score (1–5), brightness ∝ score */
+function barcodeHTML(story, big) {
+  return `<div class="barcode ${big ? "lg" : ""}">` + AXES.map(a => {
+    const v = story.scores[a.key];
+    if (v === null || v === undefined) return `<div class="bar na" style="height:20%"></div>`;
+    const h = 15 + (v - 1) / 4 * 85;         // 15%..100%
+    const op = 0.4 + (v - 1) / 4 * 0.6;       // 0.4..1
+    return `<div class="bar" style="height:${h}%;opacity:${op}" title="${a.label}: ${v}"></div>`;
+  }).join("") + `</div>`;
+}
+
+/* ================= Render: sidebar stats (range per axis) ================= */
+function renderStats() {
+  const el = document.getElementById("statsPanel");
+  const rated = state.stories.filter(s => composite(s) !== null);
+  if (rated.length < 2) {
+    el.innerHTML = `<h3>Per-axis spread</h3><div class="caption">Rate at least two stories and this panel shows which axis is doing the real work — the one your scores spread across widest.</div>`;
+    return;
+  }
+  // compute min/max/mean per axis
+  const stats = AXES.map(a => {
+    const vals = rated.map(s => s.scores[a.key]).filter(v => v !== null && v !== undefined);
+    if (!vals.length) return { a, min: null, max: null, mean: null, spread: -1 };
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const mean = vals.reduce((x, y) => x + y, 0) / vals.length;
+    return { a, min, max, mean, spread: max - min };
+  });
+  const maxSpread = Math.max(...stats.map(s => s.spread));
+  el.innerHTML = `<h3>Per-axis spread · ${rated.length} rated</h3>` +
+    stats.map(s => {
+      if (s.min === null) return "";
+      const wide = s.spread === maxSpread && maxSpread > 0;
+      const left = (s.min - 1) / 4 * 100, width = Math.max(3, s.spread / 4 * 100);
+      return `<div class="stat-row ${wide ? "wide" : ""}">
+        <span class="sname">${esc(s.a.label)}</span>
+        <div class="rangebar"><div class="span" style="left:${left}%;width:${width}%"></div></div>
+        <span class="smean">${s.mean.toFixed(1)}</span>
+      </div>`;
+    }).join("") +
+    `<div class="caption">Widest spread → <b>${esc(stats.find(s => s.spread === maxSpread && maxSpread > 0)?.a.label || "—")}</b> is discriminating most between your stories. Axes that flatten at ceiling across many entries are candidates to drop.</div>`;
+}
+
+/* ================= Render: library ================= */
+const $storyList = document.getElementById("storyList");
+
+function sortedStories() {
+  const mode = document.getElementById("sortSelect").value;
+  const arr = [...state.stories];
+  if (mode === "recent") arr.sort((a, b) => b.updatedAt - a.updatedAt);
+  else if (mode === "title") arr.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  else if (mode === "composite") arr.sort((a, b) => (composite(b) ?? -1) - (composite(a) ?? -1));
+  else arr.sort((a, b) => (b.scores[mode] ?? -1) - (a.scores[mode] ?? -1));
+  return arr;
+}
+
+function renderLibrary() {
+  renderStats();
+  const stories = sortedStories();
+  if (!stories.length) {
+    $storyList.innerHTML = '<li class="empty-lib">No stories yet.<br>Hit <b>＋ New Story</b> after you finish a read.</li>';
+    return;
+  }
+  const mode = document.getElementById("sortSelect").value;
+  const ranked = mode !== "recent" && mode !== "title";
+  $storyList.innerHTML = stories.map((s, i) => {
+    const c = composite(s);
+    const badge = c === null
+      ? '<span class="composite">—</span>'
+      : `<span class="composite ${compClass(c)}">${c.toFixed(1)}</span>`;
+    const frame = s.frameIntact
+      ? '<span class="frame-dot" title="Frame intact">◆ frame ok</span>'
+      : '<span class="frame-dot broken" title="Frame breaks — why is this person posting?">◇ frame breaks</span>';
+    return `<li class="story-card ${s.id === activeId ? "active" : ""}" data-id="${s.id}">
+      ${ranked ? `<span class="rank">#${i + 1}</span>` : ""}
+      <div class="title">${esc(s.title) || "<i>Untitled read</i>"}</div>
+      <div class="sub">${esc(s.author ? "u/" + s.author.replace(/^u\//, "") : "")}</div>
+      <div class="card-foot">
+        ${badge}
+        ${barcodeHTML(s, false)}
+      </div>
+      <div class="card-foot" style="margin-top:5px">${frame}</div>
+    </li>`;
+  }).join("");
+  $storyList.querySelectorAll(".story-card").forEach(card =>
+    card.addEventListener("click", () => selectStory(card.dataset.id)));
+}
+
+function selectStory(id) {
+  if (id === activeId) return;
+  activeId = id;
+  renderLibrary();
+  renderEditor();
+}
+
+/* ================= Render: editor ================= */
+const $main = document.getElementById("main");
+
+function renderEditor() {
+  const story = getStory(activeId);
+  if (!story) {
+    $main.innerHTML = `<div class="welcome">
+      <h2>🌙 NoSleep Ledger</h2>
+      <p>Seven axes, 1–5, one click each. The idea isn't the number — it's the <b>shape</b>. Every entry gets a barcode of its seven marks so you can see at a glance what kind of story it was.</p>
+      <ul>
+        <li><span class="axis-name">Hook</span> — title + first 100 words. It's a feed; that's the whole pitch.</li>
+        <li><span class="axis-name">Voice</span> — a person recounting vs. a writer performing.</li>
+        <li><span class="axis-name">Restraint</span> — what it refuses to explain.</li>
+        <li><span class="axis-name">Escalation</span> — does each wrong thing make the next worse?</li>
+        <li><span class="axis-name">Concept</span> — genuinely fresh vs. a reskinned formula.</li>
+        <li><span class="axis-name">Landing</span> — nosleep's chronic failure: stops dead, over-resolves, or unearned twist.</li>
+        <li><span class="axis-name">Residue</span> — still there tomorrow?</li>
+      </ul>
+      <p style="margin-top:14px"><b>Frame integrity</b> is a tag, not an axis — it's binary. Why is this person posting? If the in-fiction reason doesn't hold, flag it.</p>
+      <p style="margin-top:10px">The composite is a straight mean (good for sorting, misleading on purpose). The Library panel shows <b>range per axis</b> — the axis your scores spread widest across is the one actually earning its place. Everything saves to this browser; <b>Export</b> before you trust it with a year of reading.</p>
+    </div>`;
+    return;
+  }
+
+  const c = composite(story);
+  $main.innerHTML = `
+    <div class="story-meta">
+      <div class="field"><label>Story title</label><input id="fTitle" value="${esc(story.title)}" placeholder="e.g. My grandfather's hunting cabin has a rule"></div>
+      <div class="field"><label>Author (u/…)</label><input id="fAuthor" value="${esc(story.author)}" placeholder="username"></div>
+    </div>
+    <div class="url-row">
+      <div class="field"><label>Link to the post</label><input id="fUrl" value="${esc(story.url)}" placeholder="https://www.reddit.com/r/nosleep/…"></div>
+      <a class="open-link ${isNoSleepUrl(story.url) ? "" : "disabled"}" id="openLink" href="${esc(story.url)}" target="_blank" rel="noopener noreferrer">↗ Open read</a>
+    </div>
+
+    <div class="work-grid">
+      <section class="panel">
+        <h3>Seven axes</h3>
+        <div class="sub3">One click sets the score. Poles tell you what a 1 vs a 5 means — score the judgement, not the vibe.</div>
+
+        <div class="frame-toggle">
+          <div class="ft-label">
+            <div class="t">Frame integrity <span style="color:var(--muted);font-weight:400">(tag)</span></div>
+            <div class="d">Does the in-fiction reason for posting hold up?</div>
+          </div>
+          <div class="switch" id="frameSwitch">
+            <button data-v="1" class="${story.frameIntact ? "on" : ""}">Intact</button>
+            <button data-v="0" class="${story.frameIntact ? "" : "on broken"}">Breaks</button>
+          </div>
+        </div>
+
+        ${AXES.map(a => {
+          const v = story.scores[a.key];
+          return `<div class="axis">
+            <div class="axis-head">
+              <div>
+                <div class="axis-title">${a.label}</div>
+                <div class="axis-poles"><span class="lo-pole">1 ${esc(a.lo)}</span> · <span class="hi-pole">5 ${esc(a.hi)}</span></div>
+              </div>
+            </div>
+            <div class="segs" data-axis="${a.key}">
+              ${[1,2,3,4,5].map(n =>
+                `<div class="seg ${v !== null && n <= v ? "filled" : ""} ${v === n ? "on" : ""}" data-n="${n}">${n}</div>`
+              ).join("")}
+            </div>
+          </div>`;
+        }).join("")}
+      </section>
+
+      <section class="panel">
+        <h3>Composite &amp; shape</h3>
+        <div class="composite-box">
+          <span class="num ${c === null ? "" : compClass(c)}" id="compNum">${c === null ? "—" : c.toFixed(1)}</span>
+          <span class="outof">/ 5 · straight mean of scored axes</span>
+        </div>
+        <div class="barcode-wrap">
+          <div id="bigBarcode">${barcodeHTML(story, true)}</div>
+          <div class="cap">The barcode is the real signal —<br>the number's just for sorting.</div>
+        </div>
+
+        <div class="field" style="margin-top:18px">
+          <label>Notes / where it lands</label>
+          <textarea id="fNotes" rows="7" placeholder="The line that got you. What it reminded you of. Why the landing worked or didn't…">${esc(story.notes)}</textarea>
+        </div>
+
+        <div class="story-actions">
+          <button class="btn danger" id="deleteBtn">🗑 Delete story</button>
+        </div>
+      </section>
+    </div>`;
+
+  bindEditor(story);
+}
+
+function refreshComposite(story) {
+  const c = composite(story);
+  const num = document.getElementById("compNum");
+  num.textContent = c === null ? "—" : c.toFixed(1);
+  num.className = "num " + (c === null ? "" : compClass(c));
+  document.getElementById("bigBarcode").innerHTML = barcodeHTML(story, true);
+}
+
+function bindEditor(story) {
+  const bindText = (id, prop, relib) => {
+    document.getElementById(id).addEventListener("input", e => {
+      story[prop] = e.target.value;
+      touch(story);
+      if (prop === "url") {
+        const link = document.getElementById("openLink");
+        link.href = e.target.value;
+        link.classList.toggle("disabled", !isNoSleepUrl(e.target.value));
+      }
+      if (relib) renderLibrary();
+    });
+  };
+  bindText("fTitle", "title", true);
+  bindText("fAuthor", "author", true);
+  bindText("fUrl", "url", false);
+  bindText("fNotes", "notes", false);
+
+  // axis scoring — one click
+  $main.querySelectorAll(".segs").forEach(row => {
+    const key = row.dataset.axis;
+    row.addEventListener("click", e => {
+      const seg = e.target.closest(".seg");
+      if (!seg) return;
+      const n = Number(seg.dataset.n);
+      // click the current value again to clear it
+      story.scores[key] = (story.scores[key] === n) ? null : n;
+      const v = story.scores[key];
+      row.querySelectorAll(".seg").forEach(s => {
+        const sn = Number(s.dataset.n);
+        s.classList.toggle("on", v === sn);
+        s.classList.toggle("filled", v !== null && sn <= v);
+      });
+      touch(story);
+      refreshComposite(story);
+      renderLibrary();
+    });
+  });
+
+  // frame integrity toggle
+  document.getElementById("frameSwitch").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    story.frameIntact = b.dataset.v === "1";
+    const btns = e.currentTarget.querySelectorAll("button");
+    btns[0].className = story.frameIntact ? "on" : "";
+    btns[1].className = story.frameIntact ? "" : "on broken";
+    touch(story);
+    renderLibrary();
+  });
+
+  // delete
+  document.getElementById("deleteBtn").addEventListener("click", () => {
+    if (!confirm(`Delete "${story.title || "Untitled read"}"?`)) return;
+    state.stories = state.stories.filter(s => s.id !== story.id);
+    activeId = state.stories.length ? state.stories[0].id : null;
+    save();
+    renderLibrary();
+    renderEditor();
+  });
+}
+
+/* ================= Global controls ================= */
+document.getElementById("newBtn").addEventListener("click", () => {
+  const s = newStory();
+  state.stories.unshift(s);
+  activeId = s.id;
+  save();
+  renderLibrary();
+  renderEditor();
+  document.getElementById("fTitle").focus();
+});
+
+document.getElementById("sortSelect").addEventListener("change", renderLibrary);
+
+document.getElementById("exportJsonBtn").addEventListener("click", () =>
+  download("nosleep-ledger-" + new Date().toISOString().slice(0, 10) + ".json",
+    JSON.stringify(state, null, 2), "application/json"));
+
+document.getElementById("exportMdBtn").addEventListener("click", () => {
+  const rows = [...state.stories].sort((a, b) => (composite(b) ?? -1) - (composite(a) ?? -1));
+  let md = `# NoSleep Ledger — export ${new Date().toISOString().slice(0, 10)}\n\n`;
+  md += `${state.stories.length} stor${state.stories.length === 1 ? "y" : "ies"}. Axes: ${AXES.map(a => a.label).join(" · ")}. Scores 1–5; composite is a straight mean.\n\n`;
+  rows.forEach(s => {
+    const c = composite(s);
+    md += `## ${s.title || "Untitled read"}\n`;
+    if (s.author) md += `- **Author:** u/${s.author.replace(/^u\//, "")}\n`;
+    if (s.url) md += `- **Link:** ${s.url}\n`;
+    md += `- **Frame:** ${s.frameIntact ? "intact" : "breaks"}\n`;
+    md += `- **Composite:** ${c === null ? "unrated" : c.toFixed(1) + " / 5"}\n`;
+    md += `- **Scores:** ${AXES.map(a => `${a.label} ${s.scores[a.key] ?? "–"}`).join(" · ")}\n`;
+    if (s.notes) md += `\n${s.notes}\n`;
+    md += `\n`;
+  });
+  download("nosleep-ledger-" + new Date().toISOString().slice(0, 10) + ".md", md, "text/markdown");
+});
+
+document.getElementById("importBtn").addEventListener("click", () =>
+  document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.stories)) throw new Error("bad");
+      const existing = new Set(state.stories.map(s => s.id));
+      let added = 0;
+      data.stories.forEach(s => { if (!existing.has(s.id)) { state.stories.push(s); added++; } });
+      save();
+      renderLibrary();
+      flash(`Imported ${added} stor${added === 1 ? "y" : "ies"}`);
+    } catch (err) { flash("⚠ Not a valid Ledger export"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ================= Boot ================= */
+renderLibrary();
+renderEditor();
+</script>
+</body>
+</html>
