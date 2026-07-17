@@ -242,6 +242,7 @@
     font-family: inherit; font-size: 0.9rem; resize: vertical;
   }
   #pasteArea:focus { outline: none; border-color: var(--moon); }
+  .paste-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .reader-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
   @media (max-width: 900px) { .reader-grid { grid-template-columns: 1fr; } }
@@ -759,17 +760,39 @@ function renderReader(story) {
   if (!story.bodyText) {
     host.innerHTML = `
       <div class="paste-box">
-        <p class="paste-hint">Paste the story's text below (select-all on the Reddit post → copy → paste), or use the <b>bookmarklet</b> in the sidebar to pull it in automatically. Then select any passage to highlight and add a note.</p>
-        <textarea id="pasteArea" placeholder="Paste the full story text here…"></textarea>
-        <button class="btn primary small" id="savePasteBtn">Load text</button>
+        <p class="paste-hint">Get the story text in: copy the post (select-all → copy) then tap <b>Populate from clipboard</b>, or paste into the box and hit Load, or use the <b>bookmarklet</b> in the sidebar. Then select any passage to highlight and add a note.</p>
+        <textarea id="pasteArea" placeholder="…or paste the full story text here"></textarea>
+        <div class="paste-btns">
+          <button class="btn primary small" id="clipPopulateBtn">📋 Populate from clipboard</button>
+          <button class="btn small" id="savePasteBtn">Load pasted text</button>
+        </div>
       </div>`;
-    host.querySelector("#savePasteBtn").addEventListener("click", () => {
-      const t = host.querySelector("#pasteArea").value.replace(/\r\n/g, "\n").trim();
-      if (!t) { flash("Nothing to load"); return; }
+    const loadText = t => {
+      t = (t || "").replace(/\r\n/g, "\n").trim();
+      if (!t) { flash("Nothing to load"); return false; }
       story.bodyText = t;
       touch(story);
       renderReader(story);
       syncReaderSummary(story);
+      return true;
+    };
+    host.querySelector("#savePasteBtn").addEventListener("click", () =>
+      loadText(host.querySelector("#pasteArea").value));
+    host.querySelector("#clipPopulateBtn").addEventListener("click", async () => {
+      const area = host.querySelector("#pasteArea");
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        flash("Clipboard blocked here — paste into the box, then Load");
+        area.focus();
+        return;
+      }
+      try {
+        const t = await navigator.clipboard.readText();
+        if (!t || !t.trim()) { flash("Clipboard is empty — copy the story text first"); return; }
+        if (loadText(t)) flash("Story text populated from clipboard");
+      } catch (e) {
+        flash("Couldn't read clipboard — paste into the box, then Load");
+        area.focus();
+      }
     });
     return;
   }
