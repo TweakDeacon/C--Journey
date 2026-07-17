@@ -499,6 +499,32 @@ function isRedditShareLink(url) {
   return /reddit\.com\/(?:r\/[^/]+\/)?s\/[\w-]+/i.test(url) || /(?:^|\/\/)redd\.it\/\w+/i.test(url);
 }
 
+// Copying a whole post from the Reddit app prepends the title (and sometimes r/…, u/…
+// lines) before the body. Peel the title off the front so it lands in the title field
+// instead of the story text. Returns { title: <string to set or null>, body }.
+function splitTitleFromBody(raw, existingTitle) {
+  let text = String(raw || "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  // drop leading metadata lines the app sometimes adds above the title
+  const lines = text.split("\n");
+  while (lines.length && /^(r\/[\w-]+|u\/[\w-]+|Posted by\b.*|•.*)$/i.test(lines[0].trim())) lines.shift();
+  text = lines.join("\n").trim();
+  if (!text) return { title: null, body: "" };
+
+  const nl = text.indexOf("\n");
+  const firstLine = (nl === -1 ? text : text.slice(0, nl)).trim();
+  const rest = (nl === -1 ? "" : text.slice(nl + 1)).replace(/^\n+/, "").trim();
+  const norm = s => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+  // first line duplicates a title we already have → just strip it
+  if (existingTitle && firstLine && rest && norm(firstLine) === norm(existingTitle))
+    return { title: null, body: rest };
+  // no title yet and the first line reads like one (single line, real body after) → lift it
+  if (!existingTitle && firstLine && rest && firstLine.length <= 250)
+    return { title: firstLine, body: rest };
+
+  return { title: null, body: text };
+}
+
 /* Optional bookmarklet handoff: a bookmark run ON the Reddit post opens the Ledger
    with #add=<json>, letting us grab the exact title + author cross-origin-free. */
 function importFromHash() {
@@ -510,7 +536,11 @@ function importFromHash() {
     s.title = (data.title || "").trim();
     s.author = (data.author || "").trim().replace(/^u\//, "");
     s.url = (data.url || "").trim();
-    if (typeof data.body === "string") s.bodyText = data.body.replace(/\r\n/g, "\n").trim();
+    if (typeof data.body === "string") {
+      const r = splitTitleFromBody(data.body, s.title);
+      if (r.title && !s.title) s.title = r.title;
+      s.bodyText = r.body;
+    }
     if (!s.title && s.url) { const p = parseRedditSlug(s.url); if (p) s.title = p.title; }
     state.stories.unshift(s);
     activeId = s.id;
@@ -767,13 +797,23 @@ function renderReader(story) {
           <button class="btn small" id="savePasteBtn">Load pasted text</button>
         </div>
       </div>`;
-    const loadText = t => {
-      t = (t || "").replace(/\r\n/g, "\n").trim();
-      if (!t) { flash("Nothing to load"); return false; }
-      story.bodyText = t;
+    const loadText = raw => {
+      const cleaned = (raw || "").replace(/\r\n/g, "\n").trim();
+      if (!cleaned) { flash("Nothing to load"); return false; }
+      const { title, body } = splitTitleFromBody(cleaned, story.title);
+      let liftedTitle = false;
+      if (title && !story.title.trim()) {
+        story.title = title;
+        const tf = document.getElementById("fTitle");
+        if (tf) tf.value = title;
+        liftedTitle = true;
+      }
+      story.bodyText = (body || cleaned).replace(/\n{3,}/g, "\n\n").trim();
       touch(story);
       renderReader(story);
       syncReaderSummary(story);
+      renderLibrary();
+      if (liftedTitle) flash("Title pulled from the first line — body loaded");
       return true;
     };
     host.querySelector("#savePasteBtn").addEventListener("click", () =>
