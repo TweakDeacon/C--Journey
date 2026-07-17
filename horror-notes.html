@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0b0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DreadLog">
+<title>Dread Log — Horror Short Film Notes</title>
+<style>
+  :root {
+    --bg: #0d0b0e;
+    --bg2: #16121a;
+    --panel: #1d1722;
+    --panel2: #251d2c;
+    --border: #3a2f45;
+    --text: #e8e2ee;
+    --muted: #9c8fae;
+    --blood: #c0182b;
+    --blood-dim: #7d1220;
+    --amber: #e8a33d;
+    --green: #58b368;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    background: linear-gradient(180deg, #1a0d12, var(--bg));
+    border-bottom: 1px solid var(--border);
+  }
+  header .logo { font-size: 1.5rem; }
+  header h1 { font-size: 1.15rem; }
+  header h1 span { color: var(--blood); }
+  header .tagline { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
+
+  .layout { display: flex; min-height: calc(100vh - 57px); }
+
+  /* ---------- Sidebar / Library ---------- */
+  aside {
+    width: 300px; flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .btn {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 8px 12px; cursor: pointer; font-size: 0.88rem;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: #322741; border-color: #55437a; }
+  .btn.primary { background: var(--blood-dim); border-color: var(--blood); }
+  .btn.primary:hover { background: var(--blood); }
+  .btn.small { padding: 4px 9px; font-size: 0.78rem; border-radius: 7px; }
+  .btn.danger:hover { background: var(--blood-dim); border-color: var(--blood); }
+
+  .lib-head { display: flex; align-items: center; justify-content: space-between; }
+  .lib-head h2 { font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  #sortSelect {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; padding: 4px 6px; font-size: 0.78rem;
+  }
+  #filmList { list-style: none; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .film-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; cursor: pointer; transition: border-color 0.15s;
+    position: relative;
+  }
+  .film-card:hover { border-color: #55437a; }
+  .film-card.active { border-color: var(--blood); box-shadow: 0 0 0 1px var(--blood); }
+  .film-card .rank {
+    position: absolute; top: 8px; right: 10px;
+    font-size: 0.72rem; color: var(--muted);
+  }
+  .film-card .title { font-weight: 600; font-size: 0.92rem; padding-right: 30px; }
+  .film-card .sub { color: var(--muted); font-size: 0.76rem; margin-top: 2px; }
+  .film-card .score-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .score-badge {
+    font-weight: 700; font-size: 0.85rem; padding: 1px 8px; border-radius: 6px;
+    background: #2a2033; border: 1px solid var(--border);
+  }
+  .score-badge.hi { color: var(--green); }
+  .score-badge.mid { color: var(--amber); }
+  .score-badge.lo { color: var(--blood); }
+  .mini-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .mini-tag {
+    font-size: 0.66rem; color: var(--muted); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px;
+  }
+  .io-row { display: flex; gap: 8px; }
+  .io-row .btn { flex: 1; }
+  .empty-lib { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 30px 10px; }
+
+  /* ---------- Main editor ---------- */
+  main { flex: 1; padding: 18px 22px; overflow-y: auto; min-width: 0; }
+  .welcome { color: var(--muted); max-width: 560px; margin: 60px auto; line-height: 1.7; }
+  .welcome h2 { color: var(--text); margin-bottom: 12px; }
+  .welcome li { margin-left: 20px; margin-top: 6px; }
+  .welcome kbd {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 4px;
+    padding: 0 6px; font-size: 0.85em;
+  }
+
+  .film-meta { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .field input, .field textarea {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--blood); }
+
+  /* ---------- Video area ---------- */
+  .video-panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; }
+  .source-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .source-row input[type="text"] {
+    flex: 1; min-width: 200px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.88rem;
+  }
+  .video-stage {
+    position: relative; background: #000; border-radius: 8px; overflow: hidden;
+    aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
+  }
+  .video-stage video, .video-stage iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .video-placeholder { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 20px; }
+  .video-stage.dragover { outline: 2px dashed var(--blood); outline-offset: -8px; }
+
+  .transport {
+    display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;
+  }
+  .timecode {
+    font-family: "Consolas", "SF Mono", monospace; font-size: 1.25rem; font-weight: 700;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 4px 12px; min-width: 118px; text-align: center;
+  }
+  .timecode .dur { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+  .hint { color: var(--muted); font-size: 0.76rem; }
+
+  /* ---------- Two-column: notes + ratings ---------- */
+  .work-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .work-grid { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .panel > h3 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+
+  .note-compose { display: flex; gap: 8px; margin-bottom: 12px; }
+  .note-compose textarea {
+    flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: 0.9rem; resize: vertical; min-height: 42px;
+    font-family: inherit;
+  }
+  .note-compose textarea:focus { outline: none; border-color: var(--blood); }
+  .compose-btns { display: flex; flex-direction: column; gap: 6px; }
+
+  #notesList { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .note-item {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }
+  .ts-chip {
+    font-family: "Consolas", "SF Mono", monospace; font-size: 0.82rem; font-weight: 700;
+    background: var(--blood-dim); color: #ffd9dd; border: 1px solid var(--blood);
+    border-radius: 6px; padding: 2px 8px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .ts-chip:hover { background: var(--blood); }
+  .ts-chip.none { background: var(--panel2); color: var(--muted); border-color: var(--border); cursor: default; }
+  .note-text { flex: 1; font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .note-text[contenteditable]:focus { outline: 1px solid var(--border); border-radius: 4px; }
+  .note-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0 2px; }
+  .note-del:hover { color: var(--blood); }
+  .no-notes { color: var(--muted); font-size: 0.85rem; }
+
+  /* ---------- Ratings ---------- */
+  .overall-box {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;
+  }
+  .overall-box .num { font-size: 1.9rem; font-weight: 800; }
+  .overall-box .outof { color: var(--muted); }
+  .overall-box .num.hi { color: var(--green); }
+  .overall-box .num.mid { color: var(--amber); }
+  .overall-box .num.lo { color: var(--blood); }
+
+  .rating-row { margin-bottom: 12px; }
+  .rating-row .rr-head { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 3px; }
+  .rating-row .rr-val { font-weight: 700; font-family: "Consolas", monospace; }
+  .rating-row .rr-desc { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+  input[type="range"] {
+    width: 100%; appearance: none; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--blood) var(--fill, 0%), #362b42 var(--fill, 0%));
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--blood);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--blood);
+  }
+
+  .scare-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+  .scare-tag {
+    font-size: 0.78rem; padding: 4px 11px; border-radius: 20px; cursor: pointer;
+    background: var(--bg2); border: 1px solid var(--border); color: var(--muted);
+    transition: all 0.15s; user-select: none;
+  }
+  .scare-tag:hover { border-color: #55437a; color: var(--text); }
+  .scare-tag.on { background: var(--blood-dim); border-color: var(--blood); color: #ffd9dd; }
+
+  .film-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  .flash {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); border: 1px solid var(--blood); color: var(--text);
+    border-radius: 8px; padding: 8px 18px; font-size: 0.85rem; opacity: 0;
+    pointer-events: none; transition: opacity 0.25s; z-index: 50;
+  }
+  .flash.show { opacity: 1; }
+
+  /* ---------- Phone layout ---------- */
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; min-height: 0; }
+    header { padding: 10px 14px; }
+    header .tagline { display: none; }
+    aside {
+      width: 100%; border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+    #filmList {
+      flex-direction: row; overflow-x: auto; overflow-y: hidden;
+      padding-bottom: 6px; -webkit-overflow-scrolling: touch;
+    }
+    .film-card { min-width: 210px; max-width: 240px; flex-shrink: 0; }
+    .empty-lib { width: 100%; padding: 12px; }
+    main { padding: 12px; }
+    .film-meta { grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
+    .source-row input[type="text"] { min-width: 100%; }
+    .transport .hint { display: none; }
+    .btn { padding: 10px 14px; }   /* bigger touch targets */
+    .btn.small { padding: 7px 11px; }
+    .scare-tag { padding: 7px 13px; }
+    .note-compose { flex-direction: column; }
+    .compose-btns { flex-direction: row; }
+    .compose-btns .btn { flex: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🩸</div>
+  <h1>DREAD<span>LOG</span></h1>
+  <div class="tagline">horror short film notes &amp; rankings — saved in your browser</div>
+</header>
+
+<div class="layout">
+  <aside>
+    <button class="btn primary" id="newFilmBtn">＋ New Film</button>
+    <div class="lib-head">
+      <h2>Library</h2>
+      <select id="sortSelect" title="Sort library">
+        <option value="score">Rank: Overall</option>
+        <option value="scare">Rank: Scare</option>
+        <option value="cinematography">Rank: Cinematography</option>
+        <option value="sound">Rank: Sound</option>
+        <option value="premise">Rank: Premise</option>
+        <option value="acting">Rank: Acting</option>
+        <option value="recent">Recently updated</option>
+        <option value="title">Title A–Z</option>
+      </select>
+    </div>
+    <ul id="filmList"></ul>
+    <div class="io-row">
+      <button class="btn small" id="exportBtn" title="Download library as JSON">⬇ Export</button>
+      <button class="btn small" id="importBtn" title="Load library from JSON">⬆ Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+
+  <main id="main">
+    <!-- rendered by JS -->
+  </main>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+"use strict";
+
+/* ================= Data layer ================= */
+const STORE_KEY = "dreadlog.v1";
+
+const SCARE_TYPES = [
+  "Jump Scare", "Dread / Atmosphere", "Psychological", "Supernatural",
+  "Monster / Creature", "Body Horror", "Gore / Splatter", "Slasher",
+  "Cosmic / Existential", "Found Footage", "Analog Horror", "Folk Horror",
+  "Home Invasion", "Tech Horror", "Comedy Horror"
+];
+
+const RATING_CATS = [
+  { key: "scare",          label: "Scare Effectiveness", desc: "Did it actually get under your skin?" },
+  { key: "cinematography", label: "Cinematography",      desc: "Framing, lighting, camera work" },
+  { key: "sound",          label: "Sound Design",        desc: "Mix, score, silence, stingers" },
+  { key: "premise",        label: "Premise / Concept",   desc: "Strength and originality of the idea" },
+  { key: "acting",         label: "Acting",              desc: "Performances and believability" },
+  { key: "pacing",         label: "Pacing / Tension",    desc: "Build-up, escalation, no dead air" },
+  { key: "ending",         label: "Ending / Payoff",     desc: "Does the final beat land?" },
+  { key: "rewatch",        label: "Rewatchability",      desc: "Would you show this to someone?" }
+];
+
+let state = load();
+let activeId = state.films.length ? state.films[0].id : null;
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { console.warn("Could not load saved data:", e); }
+  return { films: [] };
+}
+
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch (e) { flash("⚠ Could not save (storage full?)"); }
+  }, 200);
+}
+
+function newFilm() {
+  const ratings = {};
+  RATING_CATS.forEach(c => ratings[c.key] = null);
+  return {
+    id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: "", director: "", year: "",
+    link: "", localFileName: "",
+    scareTypes: [],
+    ratings,
+    notes: [],          // { t: seconds|null, text }
+    generalNotes: "",
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+}
+
+function getFilm(id) { return state.films.find(f => f.id === id); }
+
+function overallScore(film) {
+  const vals = RATING_CATS.map(c => film.ratings[c.key]).filter(v => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function touch(film) { film.updatedAt = Date.now(); save(); }
+
+/* ================= Utilities ================= */
+function fmtTime(sec) {
+  if (sec === null || sec === undefined || isNaN(sec)) return "--:--";
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function scoreClass(n) { return n >= 7 ? "hi" : n >= 4.5 ? "mid" : "lo"; }
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+let flashTimer = null;
+function flash(msg) {
+  const el = document.getElementById("flash");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+function parseYouTubeId(url) {
+  const m = String(url).match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/
+  );
+  return m ? m[1] : null;
+}
+
+/* ================= Player abstraction ================= */
+/* One "player" at a time: either an HTML5 <video> (local file) or a YouTube iframe. */
+const player = {
+  mode: null,          // "video" | "yt" | null
+  videoEl: null,
+  ytPlayer: null,
+  ytReady: false,
+  objectUrl: null,
+  pollTimer: null,
+
+  destroy() {
+    clearInterval(this.pollTimer);
+    if (this.ytPlayer && this.ytPlayer.destroy) { try { this.ytPlayer.destroy(); } catch (e) {} }
+    if (this.objectUrl) { URL.revokeObjectURL(this.objectUrl); this.objectUrl = null; }
+    this.mode = null; this.videoEl = null; this.ytPlayer = null; this.ytReady = false;
+  },
+
+  currentTime() {
+    if (this.mode === "video" && this.videoEl) return this.videoEl.currentTime;
+    if (this.mode === "yt" && this.ytReady) {
+      try { return this.ytPlayer.getCurrentTime(); } catch (e) { return null; }
+    }
+    return null;
+  },
+
+  duration() {
+    if (this.mode === "video" && this.videoEl) return this.videoEl.duration;
+    if (this.mode === "yt" && this.ytReady) {
+      try { return this.ytPlayer.getDuration(); } catch (e) { return null; }
+    }
+    return null;
+  },
+
+  seek(t) {
+    if (this.mode === "video" && this.videoEl) this.videoEl.currentTime = t;
+    else if (this.mode === "yt" && this.ytReady) { try { this.ytPlayer.seekTo(t, true); } catch (e) {} }
+  },
+
+  togglePlay() {
+    if (this.mode === "video" && this.videoEl) {
+      this.videoEl.paused ? this.videoEl.play() : this.videoEl.pause();
+    } else if (this.mode === "yt" && this.ytReady) {
+      try {
+        const st = this.ytPlayer.getPlayerState();
+        st === 1 ? this.ytPlayer.pauseVideo() : this.ytPlayer.playVideo();
+      } catch (e) {}
+    }
+  },
+
+  nudge(dt) {
+    const t = this.currentTime();
+    if (t !== null) this.seek(Math.max(0, t + dt));
+  },
+
+  loadLocalFile(file, stage) {
+    this.destroy();
+    this.mode = "video";
+    this.objectUrl = URL.createObjectURL(file);
+    stage.innerHTML = "";
+    const v = document.createElement("video");
+    v.controls = true;
+    v.src = this.objectUrl;
+    stage.appendChild(v);
+    this.videoEl = v;
+    v.addEventListener("timeupdate", updateTimecode);
+    v.addEventListener("seeking", updateTimecode);
+    v.addEventListener("loadedmetadata", updateTimecode);
+    this.startPolling();
+  },
+
+  loadYouTube(videoId, stage) {
+    this.destroy();
+    this.mode = "yt";
+    stage.innerHTML = '<div id="ytHost" style="width:100%;height:100%"></div>';
+    const boot = () => {
+      this.ytPlayer = new YT.Player("ytHost", {
+        videoId,
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: { onReady: () => { this.ytReady = true; updateTimecode(); } }
+      });
+    };
+    if (window.YT && window.YT.Player) boot();
+    else {
+      window.onYouTubeIframeAPIReady = boot;
+      if (!document.getElementById("ytApiScript")) {
+        const s = document.createElement("script");
+        s.id = "ytApiScript";
+        s.src = "https://www.youtube.com/iframe_api";
+        s.onerror = () => {
+          stage.innerHTML = '<div class="video-placeholder">Could not load the YouTube player (offline or blocked).<br>You can still take notes — or download the film and load it as a local file.</div>';
+        };
+        document.head.appendChild(s);
+      }
+    }
+    this.startPolling();
+  },
+
+  startPolling() {
+    clearInterval(this.pollTimer);
+    this.pollTimer = setInterval(updateTimecode, 250);
+  }
+};
+
+function updateTimecode() {
+  const el = document.getElementById("timecode");
+  if (!el) return;
+  const t = player.currentTime(), d = player.duration();
+  el.innerHTML = `${fmtTime(t)} <span class="dur">/ ${fmtTime(d)}</span>`;
+}
+
+/* ================= Rendering ================= */
+const $main = document.getElementById("main");
+const $filmList = document.getElementById("filmList");
+
+function sortedFilms() {
+  const mode = document.getElementById("sortSelect").value;
+  const films = [...state.films];
+  if (mode === "recent") films.sort((a, b) => b.updatedAt - a.updatedAt);
+  else if (mode === "title") films.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  else if (mode === "score") films.sort((a, b) => (overallScore(b) ?? -1) - (overallScore(a) ?? -1));
+  else films.sort((a, b) => (b.ratings[mode] ?? -1) - (a.ratings[mode] ?? -1));
+  return films;
+}
+
+function renderLibrary() {
+  const films = sortedFilms();
+  if (!films.length) {
+    $filmList.innerHTML = '<li class="empty-lib">No films yet.<br>Hit <b>＋ New Film</b> to start logging.</li>';
+    return;
+  }
+  const mode = document.getElementById("sortSelect").value;
+  const ranked = mode !== "recent" && mode !== "title";
+  $filmList.innerHTML = films.map((f, i) => {
+    const score = overallScore(f);
+    const badge = score === null
+      ? '<span class="score-badge">unrated</span>'
+      : `<span class="score-badge ${scoreClass(score)}">${score.toFixed(1)}</span>`;
+    const tags = f.scareTypes.slice(0, 3).map(t => `<span class="mini-tag">${esc(t)}</span>`).join("");
+    const more = f.scareTypes.length > 3 ? `<span class="mini-tag">+${f.scareTypes.length - 3}</span>` : "";
+    return `<li class="film-card ${f.id === activeId ? "active" : ""}" data-id="${f.id}">
+      ${ranked ? `<span class="rank">#${i + 1}</span>` : ""}
+      <div class="title">${esc(f.title) || "<i>Untitled</i>"}</div>
+      <div class="sub">${esc(f.director || "")}${f.director && f.year ? " · " : ""}${esc(f.year || "")}</div>
+      <div class="score-row">${badge}<span class="hint">${f.notes.length} note${f.notes.length === 1 ? "" : "s"}</span></div>
+      ${tags || more ? `<div class="mini-tags">${tags}${more}</div>` : ""}
+    </li>`;
+  }).join("");
+
+  $filmList.querySelectorAll(".film-card").forEach(card => {
+    card.addEventListener("click", () => selectFilm(card.dataset.id));
+  });
+}
+
+function selectFilm(id) {
+  if (id === activeId) return;
+  activeId = id;
+  player.destroy();
+  renderLibrary();
+  renderEditor();
+}
+
+function renderEditor() {
+  const film = getFilm(activeId);
+  if (!film) {
+    $main.innerHTML = `<div class="welcome">
+      <h2>🎬 Welcome to DreadLog</h2>
+      <p>A scratchpad and ranking system for the horror shorts you dig up.</p>
+      <ul>
+        <li>Create a film, then load a <b>local video file</b> (drag &amp; drop works) or paste a <b>YouTube link</b>.</li>
+        <li>Scrub to any moment and hit <b>Grab Timestamp</b> (or press <kbd>T</kbd>) to pin a note to that exact second.</li>
+        <li>Click any timestamp chip later to jump the player right back to that moment.</li>
+        <li>Rate each film on scare effectiveness, cinematography, sound design, premise, acting and more — the library ranks them automatically.</li>
+        <li>Everything saves to this browser automatically. Use <b>Export</b> to back up or move machines.</li>
+      </ul>
+      <p style="margin-top:14px">Shortcuts while a player is loaded: <kbd>T</kbd> grab timestamp · <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> skip 5s</p>
+    </div>`;
+    return;
+  }
+
+  const score = overallScore(film);
+
+  $main.innerHTML = `
+    <div class="film-meta">
+      <div class="field"><label>Title</label><input id="fTitle" value="${esc(film.title)}" placeholder="e.g. Lights Out"></div>
+      <div class="field"><label>Director</label><input id="fDirector" value="${esc(film.director)}" placeholder="Director"></div>
+      <div class="field"><label>Year</label><input id="fYear" value="${esc(film.year)}" placeholder="2024"></div>
+    </div>
+
+    <div class="video-panel">
+      <div class="source-row">
+        <input type="text" id="ytUrl" placeholder="Paste a YouTube URL… (or load a local file →)" value="${esc(film.link)}">
+        <button class="btn" id="loadYtBtn">Load YouTube</button>
+        <button class="btn" id="loadFileBtn">📂 Local file</button>
+        <input type="file" id="fileInput" accept="video/*" hidden>
+      </div>
+      <div class="video-stage" id="videoStage">
+        <div class="video-placeholder">
+          No video loaded.<br>Paste a YouTube link above, click <b>Local file</b>, or drag a video file here.
+          ${film.localFileName ? `<br><span class="hint">Last local file: ${esc(film.localFileName)} (re-load it — browsers can't reopen files automatically)</span>` : ""}
+        </div>
+      </div>
+      <div class="transport">
+        <div class="timecode" id="timecode">--:-- <span class="dur">/ --:--</span></div>
+        <button class="btn primary" id="grabBtn">⏱ Grab Timestamp → Note</button>
+        <button class="btn small" id="back5">−5s</button>
+        <button class="btn small" id="fwd5">+5s</button>
+        <span class="hint">Scrub in the player, then grab. Keys: T = grab · Space = play/pause · ←/→ = 5s</span>
+      </div>
+    </div>
+
+    <div class="work-grid">
+      <section class="panel">
+        <h3>⏱ Timestamped Notes</h3>
+        <div class="note-compose">
+          <textarea id="noteText" placeholder="What just happened? (T grabs the current time into a new note)"></textarea>
+          <div class="compose-btns">
+            <button class="btn primary small" id="addTsNote" title="Add note pinned to current player time">＋ @ time</button>
+            <button class="btn small" id="addPlainNote" title="Add note without a timestamp">＋ plain</button>
+          </div>
+        </div>
+        <ul id="notesList"></ul>
+        <div class="field" style="margin-top:14px">
+          <label>General notes / verdict</label>
+          <textarea id="fGeneral" rows="4" placeholder="Overall thoughts, comparisons, where you found it…">${esc(film.generalNotes)}</textarea>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>💀 Ratings</h3>
+        <div class="overall-box">
+          <span class="num ${score === null ? "" : scoreClass(score)}" id="overallNum">${score === null ? "—" : score.toFixed(1)}</span>
+          <span class="outof">/ 10 overall (avg of rated categories)</span>
+        </div>
+
+        <div class="field" style="margin-bottom:12px">
+          <label>Type of scare (tag all that apply)</label>
+          <div class="scare-tags" id="scareTags">
+            ${SCARE_TYPES.map(t =>
+              `<span class="scare-tag ${film.scareTypes.includes(t) ? "on" : ""}" data-tag="${esc(t)}">${esc(t)}</span>`
+            ).join("")}
+          </div>
+        </div>
+
+        ${RATING_CATS.map(c => {
+          const v = film.ratings[c.key];
+          return `<div class="rating-row">
+            <div class="rr-head">
+              <span>${c.label}</span>
+              <span class="rr-val" id="val_${c.key}">${v === null ? "—" : v}</span>
+            </div>
+            <input type="range" min="0" max="10" step="1" value="${v === null ? 5 : v}"
+                   data-key="${c.key}" data-set="${v === null ? "0" : "1"}"
+                   style="--fill:${v === null ? 0 : v * 10}%">
+            <div class="rr-desc">${c.desc}</div>
+          </div>`;
+        }).join("")}
+
+        <div class="film-actions">
+          <button class="btn danger" id="deleteFilmBtn">🗑 Delete film</button>
+        </div>
+      </section>
+    </div>
+  `;
+
+  bindEditor(film);
+  renderNotes(film);
+  updateTimecode();
+}
+
+function renderNotes(film) {
+  const ul = document.getElementById("notesList");
+  if (!film.notes.length) {
+    ul.innerHTML = '<li class="no-notes">No notes yet. Scrub to a moment and hit <b>Grab Timestamp</b>.</li>';
+    return;
+  }
+  const sorted = film.notes.map((n, idx) => ({ n, idx }))
+    .sort((a, b) => (a.n.t ?? Infinity) - (b.n.t ?? Infinity));
+  ul.innerHTML = sorted.map(({ n, idx }) => `
+    <li class="note-item" data-idx="${idx}">
+      ${n.t === null
+        ? '<span class="ts-chip none">note</span>'
+        : `<span class="ts-chip" data-t="${n.t}" title="Jump to ${fmtTime(n.t)}">${fmtTime(n.t)}</span>`}
+      <div class="note-text" contenteditable="true" spellcheck="false">${esc(n.text)}</div>
+      <button class="note-del" title="Delete note">✕</button>
+    </li>`).join("");
+
+  ul.querySelectorAll(".note-item").forEach(li => {
+    const idx = Number(li.dataset.idx);
+    const chip = li.querySelector(".ts-chip[data-t]");
+    if (chip) chip.addEventListener("click", () => {
+      player.seek(Number(chip.dataset.t));
+      flash("Jumped to " + chip.textContent);
+    });
+    li.querySelector(".note-text").addEventListener("blur", e => {
+      film.notes[idx].text = e.target.innerText.trim();
+      touch(film);
+    });
+    li.querySelector(".note-del").addEventListener("click", () => {
+      film.notes.splice(idx, 1);
+      touch(film);
+      renderNotes(film);
+      renderLibrary();
+    });
+  });
+}
+
+/* ================= Editor bindings ================= */
+function bindEditor(film) {
+  const bindText = (id, prop) => {
+    document.getElementById(id).addEventListener("input", e => {
+      film[prop] = e.target.value;
+      touch(film);
+      if (prop === "title" || prop === "director" || prop === "year") renderLibrary();
+    });
+  };
+  bindText("fTitle", "title");
+  bindText("fDirector", "director");
+  bindText("fYear", "year");
+  bindText("fGeneral", "generalNotes");
+  bindText("ytUrl", "link");
+
+  const stage = document.getElementById("videoStage");
+
+  // --- video sources ---
+  document.getElementById("loadYtBtn").addEventListener("click", () => {
+    const id = parseYouTubeId(document.getElementById("ytUrl").value);
+    if (!id) { flash("That doesn't look like a YouTube URL"); return; }
+    player.loadYouTube(id, stage);
+  });
+  const fileInput = document.getElementById("fileInput");
+  document.getElementById("loadFileBtn").addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) loadLocal(fileInput.files[0]);
+  });
+  stage.addEventListener("dragover", e => { e.preventDefault(); stage.classList.add("dragover"); });
+  stage.addEventListener("dragleave", () => stage.classList.remove("dragover"));
+  stage.addEventListener("drop", e => {
+    e.preventDefault();
+    stage.classList.remove("dragover");
+    const f = [...e.dataTransfer.files].find(f => f.type.startsWith("video/"));
+    if (f) loadLocal(f); else flash("Drop a video file");
+  });
+  function loadLocal(f) {
+    film.localFileName = f.name;
+    if (!film.title) { film.title = f.name.replace(/\.[^.]+$/, ""); document.getElementById("fTitle").value = film.title; renderLibrary(); }
+    touch(film);
+    player.loadLocalFile(f, stage);
+  }
+  // Auto-load a saved YouTube link
+  if (film.link && parseYouTubeId(film.link)) {
+    player.loadYouTube(parseYouTubeId(film.link), stage);
+  }
+
+  // --- timestamp grabbing ---
+  document.getElementById("grabBtn").addEventListener("click", grabTimestamp);
+  document.getElementById("back5").addEventListener("click", () => player.nudge(-5));
+  document.getElementById("fwd5").addEventListener("click", () => player.nudge(5));
+
+  document.getElementById("addTsNote").addEventListener("click", () => addNote(true));
+  document.getElementById("addPlainNote").addEventListener("click", () => addNote(false));
+  document.getElementById("noteText").addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addNote(true); }
+  });
+
+  function addNote(withTime) {
+    const ta = document.getElementById("noteText");
+    const text = ta.value.trim();
+    const t = withTime ? player.currentTime() : null;
+    if (!text && t === null) { flash("Write something or load a video first"); return; }
+    film.notes.push({ t: t !== null ? Math.floor(t) : null, text });
+    ta.value = "";
+    touch(film);
+    renderNotes(film);
+    renderLibrary();
+  }
+
+  function grabTimestamp() {
+    const t = player.currentTime();
+    if (t === null) { flash("Load a video first"); return; }
+    const ta = document.getElementById("noteText");
+    film.notes.push({ t: Math.floor(t), text: ta.value.trim() });
+    ta.value = "";
+    touch(film);
+    renderNotes(film);
+    renderLibrary();
+    flash("⏱ Timestamp grabbed: " + fmtTime(t));
+    ta.focus();
+  }
+  window.__grabTimestamp = grabTimestamp; // for keyboard shortcut
+
+  // --- scare type tags ---
+  document.getElementById("scareTags").addEventListener("click", e => {
+    const tag = e.target.closest(".scare-tag");
+    if (!tag) return;
+    const name = tag.dataset.tag;
+    const i = film.scareTypes.indexOf(name);
+    if (i >= 0) film.scareTypes.splice(i, 1); else film.scareTypes.push(name);
+    tag.classList.toggle("on");
+    touch(film);
+    renderLibrary();
+  });
+
+  // --- rating sliders ---
+  $main.querySelectorAll('input[type="range"]').forEach(sl => {
+    sl.addEventListener("input", () => {
+      const v = Number(sl.value);
+      film.ratings[sl.dataset.key] = v;
+      sl.dataset.set = "1";
+      sl.style.setProperty("--fill", v * 10 + "%");
+      document.getElementById("val_" + sl.dataset.key).textContent = v;
+      const score = overallScore(film);
+      const num = document.getElementById("overallNum");
+      num.textContent = score === null ? "—" : score.toFixed(1);
+      num.className = "num " + (score === null ? "" : scoreClass(score));
+      touch(film);
+      renderLibrary();
+    });
+  });
+
+  // --- delete ---
+  document.getElementById("deleteFilmBtn").addEventListener("click", () => {
+    if (!confirm(`Delete "${film.title || "Untitled"}" and all its notes?`)) return;
+    state.films = state.films.filter(f => f.id !== film.id);
+    activeId = state.films.length ? state.films[0].id : null;
+    player.destroy();
+    save();
+    renderLibrary();
+    renderEditor();
+  });
+}
+
+/* ================= Global controls ================= */
+document.getElementById("newFilmBtn").addEventListener("click", () => {
+  const f = newFilm();
+  state.films.unshift(f);
+  activeId = f.id;
+  player.destroy();
+  save();
+  renderLibrary();
+  renderEditor();
+  document.getElementById("fTitle").focus();
+});
+
+document.getElementById("sortSelect").addEventListener("change", renderLibrary);
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "dreadlog-export-" + new Date().toISOString().slice(0, 10) + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById("importBtn").addEventListener("click", () =>
+  document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.films)) throw new Error("bad format");
+      const existing = new Set(state.films.map(f => f.id));
+      let added = 0;
+      data.films.forEach(f => { if (!existing.has(f.id)) { state.films.push(f); added++; } });
+      save();
+      renderLibrary();
+      flash(`Imported ${added} film${added === 1 ? "" : "s"}`);
+    } catch (err) { flash("⚠ Not a valid DreadLog export"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+// Keyboard shortcuts (ignored while typing in inputs)
+document.addEventListener("keydown", e => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ||
+    (document.activeElement && document.activeElement.isContentEditable);
+  if (typing) return;
+  if (e.key === "t" || e.key === "T") {
+    if (window.__grabTimestamp) { e.preventDefault(); window.__grabTimestamp(); }
+  } else if (e.key === " ") {
+    e.preventDefault(); player.togglePlay();
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault(); player.nudge(-5);
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault(); player.nudge(5);
+  }
+});
+
+/* ================= Boot ================= */
+renderLibrary();
+renderEditor();
+</script>
+</body>
+</html>

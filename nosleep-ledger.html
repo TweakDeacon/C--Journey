@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#090b12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NoSleep Ledger">
+<title>NoSleep Ledger — r/nosleep story ratings</title>
+<style>
+  :root {
+    --bg: #090b12;
+    --bg2: #0f1320;
+    --panel: #141a2b;
+    --panel2: #1b2237;
+    --border: #29324c;
+    --text: #e6e8f4;
+    --muted: #8b93b0;
+    --moon: #8b9cff;      /* accent: moonlight indigo */
+    --glow: #5ad1c4;      /* barcode high / positive */
+    --amber: #e8b45a;
+    --warn: #e0607a;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 500px at 80% -10%, #10152400, #0b0e18 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
+  a { color: var(--moon); }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    background: linear-gradient(180deg, #0d1120, var(--bg));
+    border-bottom: 1px solid var(--border);
+  }
+  header .logo { font-size: 1.4rem; }
+  header h1 { font-size: 1.1rem; }
+  header h1 span { color: var(--moon); font-weight: 400; }
+  header .tagline { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
+
+  .layout { display: flex; min-height: calc(100vh - 57px); }
+
+  /* ---------- Sidebar ---------- */
+  aside {
+    width: 330px; flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow-y: auto;
+  }
+  .btn {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 9px 12px; cursor: pointer; font-size: 0.88rem;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: #232c46; border-color: #47547e; }
+  .btn.primary { background: #2a2f63; border-color: var(--moon); }
+  .btn.primary:hover { background: #343b7e; }
+  .btn.small { padding: 5px 10px; font-size: 0.78rem; border-radius: 7px; }
+  .btn.danger:hover { background: #3a1f2b; border-color: var(--warn); }
+
+  .lib-head { display: flex; align-items: center; justify-content: space-between; }
+  .lib-head h2 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  #sortSelect {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; padding: 4px 6px; font-size: 0.78rem; max-width: 165px;
+  }
+
+  /* range-per-axis stats panel */
+  .stats {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 11px 12px;
+  }
+  .stats h3 { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 9px; }
+  .stat-row { display: grid; grid-template-columns: 74px 1fr 30px; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .stat-row .sname { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+  .stat-row.wide .sname { color: var(--glow); font-weight: 600; }
+  .rangebar { position: relative; height: 8px; background: var(--bg); border-radius: 4px; border: 1px solid var(--border); }
+  .rangebar .span {
+    position: absolute; top: -1px; bottom: -1px; border-radius: 4px;
+    background: linear-gradient(90deg, #46508a, var(--moon));
+  }
+  .stat-row.wide .rangebar .span { background: linear-gradient(90deg, #2f6b64, var(--glow)); }
+  .stat-row .smean { font-size: 0.72rem; color: var(--muted); font-family: "Consolas", monospace; text-align: right; }
+  .stats .caption { font-size: 0.68rem; color: var(--muted); line-height: 1.4; margin-top: 8px; }
+  .stats .caption b { color: var(--glow); }
+
+  #storyList { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .story-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; cursor: pointer; transition: border-color 0.15s;
+    position: relative;
+  }
+  .story-card:hover { border-color: #47547e; }
+  .story-card.active { border-color: var(--moon); box-shadow: 0 0 0 1px var(--moon); }
+  .story-card .rank { position: absolute; top: 9px; right: 11px; font-size: 0.7rem; color: var(--muted); }
+  .story-card .title { font-weight: 600; font-size: 0.9rem; padding-right: 28px; line-height: 1.25; }
+  .story-card .sub { color: var(--muted); font-size: 0.74rem; margin-top: 2px; }
+  .card-foot { display: flex; align-items: center; gap: 9px; margin-top: 8px; }
+  .composite {
+    font-weight: 700; font-size: 0.9rem; font-family: "Consolas", monospace;
+    padding: 1px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border);
+  }
+  .composite.hi { color: var(--glow); }
+  .composite.mid { color: var(--amber); }
+  .composite.lo { color: var(--warn); }
+  .frame-dot { font-size: 0.68rem; color: var(--muted); }
+  .frame-dot.broken { color: var(--warn); }
+
+  /* barcode */
+  .barcode { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+  .barcode.lg { height: 42px; gap: 5px; }
+  .barcode .bar {
+    width: 6px; border-radius: 2px 2px 0 0; background: var(--moon);
+    min-height: 3px; transition: height 0.15s;
+  }
+  .barcode.lg .bar { width: 11px; }
+  .barcode .bar.na { background: #2a3350; }
+
+  .io-row { display: flex; gap: 8px; }
+  .io-row .btn { flex: 1; }
+
+  .grab-help { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+  .grab-help summary { padding: 9px 12px; cursor: pointer; font-size: 0.8rem; color: var(--muted); list-style: none; }
+  .grab-help summary::-webkit-details-marker { display: none; }
+  .grab-help[open] summary { border-bottom: 1px solid var(--border); color: var(--text); }
+  .gh-body { padding: 11px 12px; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+  .gh-body p { margin-bottom: 8px; }
+  .gh-body b { color: var(--text); }
+  .gh-note { font-size: 0.7rem; }
+  .bm-link {
+    display: inline-block; padding: 7px 13px; border-radius: 7px; margin: 2px 0 8px;
+    background: #2a2f63; border: 1px solid var(--moon); color: #fff; text-decoration: none; font-size: 0.82rem;
+  }
+  .bm-code {
+    width: 100%; background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 7px; padding: 7px 9px; font-family: "Consolas", monospace; font-size: 0.66rem;
+    resize: vertical; word-break: break-all; margin-bottom: 6px;
+  }
+  .empty-lib { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 22px 10px; }
+
+  /* ---------- Main editor ---------- */
+  main { flex: 1; padding: 18px 22px; overflow-y: auto; min-width: 0; }
+  .welcome { color: var(--muted); max-width: 620px; margin: 40px auto; line-height: 1.7; }
+  .welcome h2 { color: var(--text); margin-bottom: 12px; }
+  .welcome li { margin-left: 20px; margin-top: 7px; }
+  .welcome .axis-name { color: var(--moon); font-weight: 600; }
+  .welcome kbd { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 0.85em; }
+
+  .story-meta { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .field label { display: block; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .field input, .field textarea {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--moon); }
+  .url-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
+  .url-row .field { flex: 1; }
+  .open-link {
+    display: inline-block; padding: 8px 14px; border-radius: 8px; text-decoration: none;
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text); font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .open-link:hover { border-color: var(--moon); }
+  .open-link.disabled { opacity: 0.4; pointer-events: none; }
+
+  .work-grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+  @media (max-width: 1080px) { .work-grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .panel > h3 { font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .panel > .sub3 { font-size: 0.76rem; color: var(--muted); margin-bottom: 14px; line-height: 1.4; }
+
+  /* axis scoring */
+  .axis { margin-bottom: 15px; }
+  .axis-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .axis-title { font-size: 0.92rem; font-weight: 600; }
+  .axis-poles { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .axis-poles .lo-pole { color: var(--warn); }
+  .axis-poles .hi-pole { color: var(--glow); }
+  .segs { display: flex; gap: 6px; margin-top: 7px; }
+  .seg {
+    flex: 1; height: 34px; border-radius: 7px; cursor: pointer;
+    background: var(--bg2); border: 1px solid var(--border); color: var(--muted);
+    display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 600;
+    transition: all 0.12s; user-select: none;
+  }
+  .seg:hover { border-color: var(--moon); color: var(--text); }
+  .seg.on { background: #2a2f63; border-color: var(--moon); color: #fff; }
+  .seg.on.filled { background: linear-gradient(180deg, #343b7e, #262b57); }
+
+  .frame-toggle { display: flex; align-items: center; gap: 10px; margin: 4px 0 18px; padding: 10px 12px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; }
+  .frame-toggle .ft-label { flex: 1; }
+  .frame-toggle .ft-label .t { font-size: 0.88rem; font-weight: 600; }
+  .frame-toggle .ft-label .d { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .switch button {
+    background: var(--bg); color: var(--muted); border: none; padding: 6px 12px; cursor: pointer; font-size: 0.8rem;
+  }
+  .switch button.on { background: #2a2f63; color: #fff; }
+  .switch button.on.broken { background: #3a1f2b; color: var(--warn); }
+
+  /* composite readout */
+  .composite-box {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+  }
+  .composite-box .num { font-size: 1.9rem; font-weight: 800; font-family: "Consolas", monospace; }
+  .composite-box .num.hi { color: var(--glow); }
+  .composite-box .num.mid { color: var(--amber); }
+  .composite-box .num.lo { color: var(--warn); }
+  .composite-box .outof { color: var(--muted); font-size: 0.82rem; }
+  .barcode-wrap { display: flex; align-items: flex-end; gap: 12px; margin: 14px 0 4px; }
+  .barcode-wrap .cap { font-size: 0.7rem; color: var(--muted); line-height: 1.3; }
+
+  .story-actions { display: flex; gap: 8px; margin-top: 18px; }
+
+  /* ---------- Reader / annotation ---------- */
+  .reader-panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); margin-bottom: 16px; position: relative; }
+  .reader-panel summary { padding: 12px 16px; cursor: pointer; font-size: 0.9rem; font-weight: 600; list-style: none; }
+  .reader-panel summary::-webkit-details-marker { display: none; }
+  .reader-panel[open] summary { border-bottom: 1px solid var(--border); }
+  .hl-count { font-size: 0.72rem; font-weight: 400; color: var(--glow); margin-left: 8px; }
+  #readerBody { padding: 14px 16px; }
+
+  .paste-box { display: flex; flex-direction: column; gap: 10px; }
+  .paste-hint { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  #pasteArea {
+    width: 100%; min-height: 160px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-family: inherit; font-size: 0.9rem; resize: vertical;
+  }
+  #pasteArea:focus { outline: none; border-color: var(--moon); }
+  .paste-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .reader-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .reader-grid { grid-template-columns: 1fr; } }
+  .reader-text {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 18px; max-height: 60vh; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word; line-height: 1.7; font-size: 0.96rem;
+    -webkit-user-select: text; user-select: text;
+  }
+  .reader-text .hl { border-radius: 3px; cursor: pointer; padding: 1px 0; }
+  .reader-text .hl.flash-hl { outline: 2px solid var(--moon); outline-offset: 1px; }
+
+  .margin-notes { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+  .margin-notes .no-notes { color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+  .mnote { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  .mnote.flash-note { border-color: var(--moon); box-shadow: 0 0 0 1px var(--moon); }
+  .mnote-quote { font-size: 0.76rem; color: var(--muted); font-style: italic; cursor: pointer; border-left: 3px solid var(--border); padding-left: 8px; margin-bottom: 7px; line-height: 1.4; }
+  .mnote-quote:hover { color: var(--text); }
+  .mnote-text {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; font-family: inherit; font-size: 0.82rem; resize: vertical; min-height: 34px;
+  }
+  .mnote-text:focus { outline: none; border-color: var(--moon); }
+  .mnote-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; }
+  .swatch-row { display: flex; gap: 5px; }
+  .mnote-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+  .mnote-del:hover { color: var(--warn); }
+
+  .reader-tools { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .reader-tools .hint { font-size: 0.76rem; color: var(--muted); }
+
+  .sw { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+  .sw.on { border-color: var(--text); }
+  .sw-yellow { background: rgba(232,180,90,0.9); }
+  .sw-green  { background: rgba(90,209,196,0.9); }
+  .sw-pink   { background: rgba(224,96,122,0.9); }
+  .sw-purple { background: rgba(139,156,255,0.9); }
+  .mnote-quote.sw-yellow { border-left-color: rgba(232,180,90,0.9); }
+  .mnote-quote.sw-green  { border-left-color: rgba(90,209,196,0.9); }
+  .mnote-quote.sw-pink   { border-left-color: rgba(224,96,122,0.9); }
+  .mnote-quote.sw-purple { border-left-color: rgba(139,156,255,0.9); }
+
+  .hl-toolbar {
+    position: absolute; z-index: 40; display: flex; align-items: center; gap: 7px;
+    background: var(--panel2); border: 1px solid var(--moon); border-radius: 9px;
+    padding: 7px 9px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  }
+  .hl-toolbar[hidden] { display: none; }
+  .hl-toolbar .sw-note {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 9px; font-size: 0.76rem; cursor: pointer;
+  }
+  .hl-toolbar .sw-note:hover { border-color: var(--moon); }
+
+  .flash {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); border: 1px solid var(--moon); color: var(--text);
+    border-radius: 8px; padding: 8px 18px; font-size: 0.85rem; opacity: 0;
+    pointer-events: none; transition: opacity 0.25s; z-index: 50;
+  }
+  .flash.show { opacity: 1; }
+
+  /* ---------- Phone ---------- */
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; }
+    header { padding: 10px 14px; }
+    header .tagline { display: none; }
+    aside { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 12px; }
+    .story-meta { grid-template-columns: 1fr; }
+    .url-row { flex-direction: column; align-items: stretch; }
+    .open-link { text-align: center; }
+    .seg { height: 42px; }   /* bigger touch targets */
+    .btn { padding: 11px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🌙</div>
+  <h1>NoSleep <span>Ledger</span></h1>
+  <div class="tagline">seven axes for r/nosleep — one click each, saved in your browser</div>
+</header>
+
+<div class="layout">
+  <aside>
+    <button class="btn primary" id="newBtn">＋ New Story</button>
+
+    <div class="stats" id="statsPanel"></div>
+
+    <div class="lib-head">
+      <h2>Library</h2>
+      <select id="sortSelect" title="Sort library">
+        <option value="composite">Sort: Composite</option>
+        <option value="hook">Sort: Hook</option>
+        <option value="voice">Sort: Voice</option>
+        <option value="restraint">Sort: Restraint</option>
+        <option value="escalation">Sort: Escalation</option>
+        <option value="concept">Sort: Concept</option>
+        <option value="landing">Sort: Landing</option>
+        <option value="residue">Sort: Residue</option>
+        <option value="recent">Recently updated</option>
+        <option value="title">Title A–Z</option>
+      </select>
+    </div>
+    <ul id="storyList"></ul>
+
+    <div class="io-row">
+      <button class="btn small" id="exportJsonBtn" title="Download library as JSON (backup)">⬇ JSON</button>
+      <button class="btn small" id="exportMdBtn" title="Download as Markdown">⬇ Markdown</button>
+      <button class="btn small" id="importBtn" title="Load library from JSON">⬆ Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+
+    <details class="grab-help" id="grabHelp">
+      <summary>↗ Auto-grab from a Reddit post</summary>
+      <div class="gh-body">
+        <p>Two ways to skip retyping, both with no server and no CORS proxy:</p>
+        <p><b>1 · Paste the link.</b> When you paste a post URL into a new story, the title auto-fills from the link itself. Reliable, but it can't get the author.</p>
+        <p><b>2 · Bookmarklet</b> (also grabs the <i>author</i>, exact title, and the full <i>story text</i> for highlighting). Save this as a bookmark, then tap it while you're on the Reddit post — it opens the Ledger with a new story already filled in.</p>
+        <a class="bm-link" id="bmLink" href="#">🔖 Add to Ledger</a>
+        <p class="gh-note">Drag that to your bookmarks bar on desktop. On iPhone: bookmark this page, then edit the bookmark and replace its address with the code below.</p>
+        <textarea id="bmCode" class="bm-code" readonly rows="3" onclick="this.select()"></textarea>
+        <p class="gh-note">Best-effort: if Reddit changes their page markup it may miss the author — the pasted-link title always works as a fallback.</p>
+      </div>
+    </details>
+  </aside>
+
+  <main id="main"></main>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+"use strict";
+
+/* ================= Model ================= */
+const STORE_KEY = "nosleepledger.v1";
+
+/* Seven axes. Poles describe what a 1 vs a 5 means, so the score is a judgement, not a vibe. */
+const AXES = [
+  { key: "hook",       label: "Hook",       lo: "scroll past",        hi: "stops the feed",
+    desc: "Title + first 100 words. It's a feed — that's the whole pitch." },
+  { key: "voice",      label: "Voice",      lo: "writer performing",  hi: "person recounting",
+    desc: "Does it read as someone who lived it, or someone typing horror?" },
+  { key: "restraint",  label: "Restraint",  lo: "explains everything", hi: "leaves the wound open",
+    desc: "What it refuses to explain. The gap is where the dread lives." },
+  { key: "escalation", label: "Escalation", lo: "flat / repetitive",  hi: "each wrong thing worsens the next",
+    desc: "Does the pressure compound, or just repeat louder?" },
+  { key: "concept",    label: "Concept",    lo: "reskinned formula",  hi: "genuinely fresh",
+    desc: "New idea, or a familiar one wearing a hat?" },
+  { key: "landing",    label: "Landing",    lo: "fumbles the dismount", hi: "sticks it",
+    desc: "nosleep's chronic failure: stops dead, over-resolves, or unearned twist." },
+  { key: "residue",    label: "Residue",    lo: "gone by the next post", hi: "still there tomorrow",
+    desc: "What's left after you close the tab." }
+];
+
+let state = load();
+let activeId = state.stories.length ? state.stories[0].id : null;
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.stories)) {
+        // backfill fields added in later versions
+        d.stories.forEach(s => {
+          if (typeof s.bodyText !== "string") s.bodyText = "";
+          if (!Array.isArray(s.annotations)) s.annotations = [];
+        });
+        return d;
+      }
+    }
+  } catch (e) { console.warn("load failed", e); }
+  return { stories: [] };
+}
+
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch (e) { flash("⚠ Could not save (storage full?)"); }
+  }, 150);
+}
+
+function newStory() {
+  const scores = {};
+  AXES.forEach(a => scores[a.key] = null);
+  return {
+    id: "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: "", author: "", url: "",
+    frameIntact: true,          // binary tag, not an axis
+    scores,
+    notes: "",
+    bodyText: "",               // the story's text, for highlighting
+    annotations: [],            // { id, start, end, color, note, quote }
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+}
+
+const HL_COLORS = {
+  yellow: "rgba(232,180,90,0.38)",
+  green:  "rgba(90,209,196,0.34)",
+  pink:   "rgba(224,96,122,0.34)",
+  purple: "rgba(139,156,255,0.34)"
+};
+function hlColor(name) { return HL_COLORS[name] || HL_COLORS.yellow; }
+function newAnnId() { return "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+
+function getStory(id) { return state.stories.find(s => s.id === id); }
+
+function composite(story) {
+  const vals = AXES.map(a => story.scores[a.key]).filter(v => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function touch(story) { story.updatedAt = Date.now(); save(); }
+
+/* ================= Utils ================= */
+function compClass(n) { return n >= 4 ? "hi" : n >= 2.75 ? "mid" : "lo"; }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+let flashTimer = null;
+function flash(msg) {
+  const el = document.getElementById("flash");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
+}
+function isNoSleepUrl(u) { return /^https?:\/\//i.test(u); }
+
+/* Derive a starting title from a Reddit post URL slug — no network, always works.
+   .../r/nosleep/comments/1abc23/my_grandfathers_cabin_has_a_rule/ -> "My Grandfathers Cabin Has A Rule"
+   Reddit lowercases the slug and strips punctuation, so it's a first draft to edit, not gospel. */
+function parseRedditSlug(url) {
+  try {
+    const m = String(url).match(/reddit\.com\/r\/([^/]+)\/comments\/[^/]+\/([^/?#]+)/i);
+    if (!m || !m[2]) return null;
+    const title = decodeURIComponent(m[2]).replace(/_/g, " ").trim()
+      .replace(/\s+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    return { subreddit: m[1], title };
+  } catch (e) { return null; }
+}
+
+// Reddit app "Share → Copy link" produces /s/<code> (and redd.it/<id>) short links.
+// These are opaque redirects — the title isn't in them and can't be resolved client-side.
+function isRedditShareLink(url) {
+  return /reddit\.com\/(?:r\/[^/]+\/)?s\/[\w-]+/i.test(url) || /(?:^|\/\/)redd\.it\/\w+/i.test(url);
+}
+
+// Copying a whole post from the Reddit app prepends the title (and sometimes r/…, u/…
+// lines) before the body. Peel the title off the front so it lands in the title field
+// instead of the story text. Returns { title: <string to set or null>, body }.
+function splitTitleFromBody(raw, existingTitle) {
+  let text = String(raw || "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  // drop leading metadata lines the app sometimes adds above the title
+  const lines = text.split("\n");
+  while (lines.length && /^(r\/[\w-]+|u\/[\w-]+|Posted by\b.*|•.*)$/i.test(lines[0].trim())) lines.shift();
+  text = lines.join("\n").trim();
+  if (!text) return { title: null, body: "" };
+
+  const nl = text.indexOf("\n");
+  const firstLine = (nl === -1 ? text : text.slice(0, nl)).trim();
+  const rest = (nl === -1 ? "" : text.slice(nl + 1)).replace(/^\n+/, "").trim();
+  const norm = s => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+  // first line duplicates a title we already have → just strip it
+  if (existingTitle && firstLine && rest && norm(firstLine) === norm(existingTitle))
+    return { title: null, body: rest };
+  // no title yet and the first line reads like one (single line, real body after) → lift it
+  if (!existingTitle && firstLine && rest && firstLine.length <= 250)
+    return { title: firstLine, body: rest };
+
+  return { title: null, body: text };
+}
+
+/* Optional bookmarklet handoff: a bookmark run ON the Reddit post opens the Ledger
+   with #add=<json>, letting us grab the exact title + author cross-origin-free. */
+function importFromHash() {
+  const m = (location.hash || "").match(/[#&]add=([^&]+)/);
+  if (!m) return false;
+  try {
+    const data = JSON.parse(decodeURIComponent(m[1]));
+    const s = newStory();
+    s.title = (data.title || "").trim();
+    s.author = (data.author || "").trim().replace(/^u\//, "");
+    s.url = (data.url || "").trim();
+    if (typeof data.body === "string") {
+      const r = splitTitleFromBody(data.body, s.title);
+      if (r.title && !s.title) s.title = r.title;
+      s.bodyText = r.body;
+    }
+    if (!s.title && s.url) { const p = parseRedditSlug(s.url); if (p) s.title = p.title; }
+    state.stories.unshift(s);
+    activeId = s.id;
+    save();
+    history.replaceState(null, "", location.pathname + location.search);
+    return true;
+  } catch (e) { return false; }
+}
+
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* barcode: seven bars, height ∝ score (1–5), brightness ∝ score */
+function barcodeHTML(story, big) {
+  return `<div class="barcode ${big ? "lg" : ""}">` + AXES.map(a => {
+    const v = story.scores[a.key];
+    if (v === null || v === undefined) return `<div class="bar na" style="height:20%"></div>`;
+    const h = 15 + (v - 1) / 4 * 85;         // 15%..100%
+    const op = 0.4 + (v - 1) / 4 * 0.6;       // 0.4..1
+    return `<div class="bar" style="height:${h}%;opacity:${op}" title="${a.label}: ${v}"></div>`;
+  }).join("") + `</div>`;
+}
+
+/* ================= Render: sidebar stats (range per axis) ================= */
+function renderStats() {
+  const el = document.getElementById("statsPanel");
+  const rated = state.stories.filter(s => composite(s) !== null);
+  if (rated.length < 2) {
+    el.innerHTML = `<h3>Per-axis spread</h3><div class="caption">Rate at least two stories and this panel shows which axis is doing the real work — the one your scores spread across widest.</div>`;
+    return;
+  }
+  // compute min/max/mean per axis
+  const stats = AXES.map(a => {
+    const vals = rated.map(s => s.scores[a.key]).filter(v => v !== null && v !== undefined);
+    if (!vals.length) return { a, min: null, max: null, mean: null, spread: -1 };
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const mean = vals.reduce((x, y) => x + y, 0) / vals.length;
+    return { a, min, max, mean, spread: max - min };
+  });
+  const maxSpread = Math.max(...stats.map(s => s.spread));
+  el.innerHTML = `<h3>Per-axis spread · ${rated.length} rated</h3>` +
+    stats.map(s => {
+      if (s.min === null) return "";
+      const wide = s.spread === maxSpread && maxSpread > 0;
+      const left = (s.min - 1) / 4 * 100, width = Math.max(3, s.spread / 4 * 100);
+      return `<div class="stat-row ${wide ? "wide" : ""}">
+        <span class="sname">${esc(s.a.label)}</span>
+        <div class="rangebar"><div class="span" style="left:${left}%;width:${width}%"></div></div>
+        <span class="smean">${s.mean.toFixed(1)}</span>
+      </div>`;
+    }).join("") +
+    `<div class="caption">Widest spread → <b>${esc(stats.find(s => s.spread === maxSpread && maxSpread > 0)?.a.label || "—")}</b> is discriminating most between your stories. Axes that flatten at ceiling across many entries are candidates to drop.</div>`;
+}
+
+/* ================= Render: library ================= */
+const $storyList = document.getElementById("storyList");
+
+function sortedStories() {
+  const mode = document.getElementById("sortSelect").value;
+  const arr = [...state.stories];
+  if (mode === "recent") arr.sort((a, b) => b.updatedAt - a.updatedAt);
+  else if (mode === "title") arr.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  else if (mode === "composite") arr.sort((a, b) => (composite(b) ?? -1) - (composite(a) ?? -1));
+  else arr.sort((a, b) => (b.scores[mode] ?? -1) - (a.scores[mode] ?? -1));
+  return arr;
+}
+
+function renderLibrary() {
+  renderStats();
+  const stories = sortedStories();
+  if (!stories.length) {
+    $storyList.innerHTML = '<li class="empty-lib">No stories yet.<br>Hit <b>＋ New Story</b> after you finish a read.</li>';
+    return;
+  }
+  const mode = document.getElementById("sortSelect").value;
+  const ranked = mode !== "recent" && mode !== "title";
+  $storyList.innerHTML = stories.map((s, i) => {
+    const c = composite(s);
+    const badge = c === null
+      ? '<span class="composite">—</span>'
+      : `<span class="composite ${compClass(c)}">${c.toFixed(1)}</span>`;
+    const frame = s.frameIntact
+      ? '<span class="frame-dot" title="Frame intact">◆ frame ok</span>'
+      : '<span class="frame-dot broken" title="Frame breaks — why is this person posting?">◇ frame breaks</span>';
+    return `<li class="story-card ${s.id === activeId ? "active" : ""}" data-id="${s.id}">
+      ${ranked ? `<span class="rank">#${i + 1}</span>` : ""}
+      <div class="title">${esc(s.title) || "<i>Untitled read</i>"}</div>
+      <div class="sub">${esc(s.author ? "u/" + s.author.replace(/^u\//, "") : "")}</div>
+      <div class="card-foot">
+        ${badge}
+        ${barcodeHTML(s, false)}
+      </div>
+      <div class="card-foot" style="margin-top:5px">${frame}</div>
+    </li>`;
+  }).join("");
+  $storyList.querySelectorAll(".story-card").forEach(card =>
+    card.addEventListener("click", () => selectStory(card.dataset.id)));
+}
+
+function selectStory(id) {
+  if (id === activeId) return;
+  activeId = id;
+  renderLibrary();
+  renderEditor();
+}
+
+/* ================= Render: editor ================= */
+const $main = document.getElementById("main");
+
+function renderEditor() {
+  const story = getStory(activeId);
+  if (!story) {
+    $main.innerHTML = `<div class="welcome">
+      <h2>🌙 NoSleep Ledger</h2>
+      <p>Seven axes, 1–5, one click each. The idea isn't the number — it's the <b>shape</b>. Every entry gets a barcode of its seven marks so you can see at a glance what kind of story it was.</p>
+      <ul>
+        <li><span class="axis-name">Hook</span> — title + first 100 words. It's a feed; that's the whole pitch.</li>
+        <li><span class="axis-name">Voice</span> — a person recounting vs. a writer performing.</li>
+        <li><span class="axis-name">Restraint</span> — what it refuses to explain.</li>
+        <li><span class="axis-name">Escalation</span> — does each wrong thing make the next worse?</li>
+        <li><span class="axis-name">Concept</span> — genuinely fresh vs. a reskinned formula.</li>
+        <li><span class="axis-name">Landing</span> — nosleep's chronic failure: stops dead, over-resolves, or unearned twist.</li>
+        <li><span class="axis-name">Residue</span> — still there tomorrow?</li>
+      </ul>
+      <p style="margin-top:14px"><b>Frame integrity</b> is a tag, not an axis — it's binary. Why is this person posting? If the in-fiction reason doesn't hold, flag it.</p>
+      <p style="margin-top:10px">The composite is a straight mean (good for sorting, misleading on purpose). The Library panel shows <b>range per axis</b> — the axis your scores spread widest across is the one actually earning its place. Everything saves to this browser; <b>Export</b> before you trust it with a year of reading.</p>
+    </div>`;
+    return;
+  }
+
+  const c = composite(story);
+  $main.innerHTML = `
+    <div class="story-meta">
+      <div class="field"><label>Story title</label><input id="fTitle" value="${esc(story.title)}" placeholder="e.g. My grandfather's hunting cabin has a rule"></div>
+      <div class="field"><label>Author (u/…)</label><input id="fAuthor" value="${esc(story.author)}" placeholder="username"></div>
+    </div>
+    <div class="url-row">
+      <div class="field"><label>Link to the post</label><input id="fUrl" value="${esc(story.url)}" placeholder="Paste a full …/comments/…/title/ link — title auto-fills (app /s/ share links can't carry a title)"></div>
+      <button class="open-link" id="titleFromUrl" title="Fill the title from the link's slug">⤵ Title from link</button>
+      <a class="open-link ${isNoSleepUrl(story.url) ? "" : "disabled"}" id="openLink" href="${esc(story.url)}" target="_blank" rel="noopener noreferrer">↗ Open read</a>
+    </div>
+
+    <details class="reader-panel" id="readerPanel" open>
+      <summary>📖 Story text — highlight &amp; annotate ${story.annotations.length ? `<span class="hl-count">${story.annotations.length} highlight${story.annotations.length === 1 ? "" : "s"}</span>` : ""}</summary>
+      <div id="readerBody"></div>
+    </details>
+
+    <div class="work-grid">
+      <section class="panel">
+        <h3>Seven axes</h3>
+        <div class="sub3">One click sets the score. Poles tell you what a 1 vs a 5 means — score the judgement, not the vibe.</div>
+
+        <div class="frame-toggle">
+          <div class="ft-label">
+            <div class="t">Frame integrity <span style="color:var(--muted);font-weight:400">(tag)</span></div>
+            <div class="d">Does the in-fiction reason for posting hold up?</div>
+          </div>
+          <div class="switch" id="frameSwitch">
+            <button data-v="1" class="${story.frameIntact ? "on" : ""}">Intact</button>
+            <button data-v="0" class="${story.frameIntact ? "" : "on broken"}">Breaks</button>
+          </div>
+        </div>
+
+        ${AXES.map(a => {
+          const v = story.scores[a.key];
+          return `<div class="axis">
+            <div class="axis-head">
+              <div>
+                <div class="axis-title">${a.label}</div>
+                <div class="axis-poles"><span class="lo-pole">1 ${esc(a.lo)}</span> · <span class="hi-pole">5 ${esc(a.hi)}</span></div>
+              </div>
+            </div>
+            <div class="segs" data-axis="${a.key}">
+              ${[1,2,3,4,5].map(n =>
+                `<div class="seg ${v !== null && n <= v ? "filled" : ""} ${v === n ? "on" : ""}" data-n="${n}">${n}</div>`
+              ).join("")}
+            </div>
+          </div>`;
+        }).join("")}
+      </section>
+
+      <section class="panel">
+        <h3>Composite &amp; shape</h3>
+        <div class="composite-box">
+          <span class="num ${c === null ? "" : compClass(c)}" id="compNum">${c === null ? "—" : c.toFixed(1)}</span>
+          <span class="outof">/ 5 · straight mean of scored axes</span>
+        </div>
+        <div class="barcode-wrap">
+          <div id="bigBarcode">${barcodeHTML(story, true)}</div>
+          <div class="cap">The barcode is the real signal —<br>the number's just for sorting.</div>
+        </div>
+
+        <div class="field" style="margin-top:18px">
+          <label>Notes / where it lands</label>
+          <textarea id="fNotes" rows="7" placeholder="The line that got you. What it reminded you of. Why the landing worked or didn't…">${esc(story.notes)}</textarea>
+        </div>
+
+        <div class="story-actions">
+          <button class="btn danger" id="deleteBtn">🗑 Delete story</button>
+        </div>
+      </section>
+    </div>`;
+
+  bindEditor(story);
+  renderReader(story);
+}
+
+function refreshComposite(story) {
+  const c = composite(story);
+  const num = document.getElementById("compNum");
+  num.textContent = c === null ? "—" : c.toFixed(1);
+  num.className = "num " + (c === null ? "" : compClass(c));
+  document.getElementById("bigBarcode").innerHTML = barcodeHTML(story, true);
+}
+
+/* ================= Reader: highlight & annotate ================= */
+
+// Global char offset from container start to a DOM (node, offset) boundary.
+// container.textContent equals story.bodyText, so the length IS the offset.
+function offsetOf(container, node, nodeOffset) {
+  const r = document.createRange();
+  r.selectNodeContents(container);
+  try { r.setEnd(node, nodeOffset); } catch (e) { return null; }
+  return r.toString().length;
+}
+function selectionOffsets(container) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  if (!container.contains(r.startContainer) || !container.contains(r.endContainer)) return null;
+  const a = offsetOf(container, r.startContainer, r.startOffset);
+  const b = offsetOf(container, r.endContainer, r.endOffset);
+  if (a == null || b == null || a === b) return null;
+  return { start: Math.min(a, b), end: Math.max(a, b) };
+}
+
+function renderReader(story) {
+  const host = document.getElementById("readerBody");
+  if (!host) return;
+
+  if (!story.bodyText) {
+    host.innerHTML = `
+      <div class="paste-box">
+        <p class="paste-hint">Get the story text in: copy the post (select-all → copy) then tap <b>Populate from clipboard</b>, or paste into the box and hit Load, or use the <b>bookmarklet</b> in the sidebar. Then select any passage to highlight and add a note.</p>
+        <textarea id="pasteArea" placeholder="…or paste the full story text here"></textarea>
+        <div class="paste-btns">
+          <button class="btn primary small" id="clipPopulateBtn">📋 Populate from clipboard</button>
+          <button class="btn small" id="savePasteBtn">Load pasted text</button>
+        </div>
+      </div>`;
+    const loadText = raw => {
+      const cleaned = (raw || "").replace(/\r\n/g, "\n").trim();
+      if (!cleaned) { flash("Nothing to load"); return false; }
+      const { title, body } = splitTitleFromBody(cleaned, story.title);
+      let liftedTitle = false;
+      if (title && !story.title.trim()) {
+        story.title = title;
+        const tf = document.getElementById("fTitle");
+        if (tf) tf.value = title;
+        liftedTitle = true;
+      }
+      story.bodyText = (body || cleaned).replace(/\n{3,}/g, "\n\n").trim();
+      touch(story);
+      renderReader(story);
+      syncReaderSummary(story);
+      renderLibrary();
+      if (liftedTitle) flash("Title pulled from the first line — body loaded");
+      return true;
+    };
+    host.querySelector("#savePasteBtn").addEventListener("click", () =>
+      loadText(host.querySelector("#pasteArea").value));
+    host.querySelector("#clipPopulateBtn").addEventListener("click", async () => {
+      const area = host.querySelector("#pasteArea");
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        flash("Clipboard blocked here — paste into the box, then Load");
+        area.focus();
+        return;
+      }
+      try {
+        const t = await navigator.clipboard.readText();
+        if (!t || !t.trim()) { flash("Clipboard is empty — copy the story text first"); return; }
+        if (loadText(t)) flash("Story text populated from clipboard");
+      } catch (e) {
+        flash("Couldn't read clipboard — paste into the box, then Load");
+        area.focus();
+      }
+    });
+    return;
+  }
+
+  host.innerHTML = `
+    <div class="reader-grid">
+      <div class="reader-text" id="readerText"></div>
+      <div class="margin-notes" id="marginNotes"></div>
+    </div>
+    <div class="reader-tools">
+      <button class="btn small" id="editTextBtn">✎ Edit / replace text</button>
+      <span class="hint">Select any passage → pick a colour or add a note.</span>
+    </div>
+    <div class="hl-toolbar" id="hlToolbar" hidden>
+      ${Object.keys(HL_COLORS).map(c => `<button class="sw sw-${c}" data-color="${c}" title="Highlight ${c}"></button>`).join("")}
+      <button class="sw-note" id="hlNoteBtn" title="Highlight + add note">✎ note</button>
+    </div>`;
+
+  paintText(story);
+  renderMargin(story);
+  bindReader(story);
+}
+
+// Render the text with highlight spans, using a boundary sweep so overlaps are safe.
+function paintText(story) {
+  const el = document.getElementById("readerText");
+  const text = story.bodyText;
+  const anns = story.annotations
+    .map(a => ({ ...a, start: Math.max(0, Math.min(a.start, text.length)), end: Math.max(0, Math.min(a.end, text.length)) }))
+    .filter(a => a.end > a.start);
+
+  const pts = new Set([0, text.length]);
+  anns.forEach(a => { pts.add(a.start); pts.add(a.end); });
+  const cuts = [...pts].sort((x, y) => x - y);
+
+  let html = "";
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const s = cuts[i], e = cuts[i + 1];
+    const seg = esc(text.slice(s, e));
+    const cover = anns.filter(a => a.start <= s && a.end >= e);
+    if (cover.length) {
+      const top = cover[cover.length - 1];
+      const ids = cover.map(a => a.id).join(" ");
+      html += `<span class="hl" data-ids="${ids}" style="background:${hlColor(top.color)}">${seg}</span>`;
+    } else {
+      html += seg;
+    }
+  }
+  el.innerHTML = html;
+
+  // clicking a highlight focuses its margin note
+  el.querySelectorAll(".hl").forEach(span => {
+    span.addEventListener("click", () => {
+      const id = span.dataset.ids.split(" ")[0];
+      focusNote(id);
+    });
+  });
+}
+
+function renderMargin(story) {
+  const box = document.getElementById("marginNotes");
+  if (!story.annotations.length) {
+    box.innerHTML = '<div class="no-notes">No highlights yet.<br>Select text on the left to start.</div>';
+    return;
+  }
+  const ordered = [...story.annotations].sort((a, b) => a.start - b.start);
+  box.innerHTML = ordered.map(a => `
+    <div class="mnote" data-id="${a.id}">
+      <div class="mnote-quote sw-${a.color}" title="Jump to this passage">“${esc((a.quote || "").slice(0, 140))}${(a.quote || "").length > 140 ? "…" : ""}”</div>
+      <textarea class="mnote-text" data-id="${a.id}" placeholder="Add a note…">${esc(a.note || "")}</textarea>
+      <div class="mnote-foot">
+        <span class="swatch-row">${Object.keys(HL_COLORS).map(c => `<button class="sw sw-${c} ${a.color === c ? "on" : ""}" data-id="${a.id}" data-color="${c}"></button>`).join("")}</span>
+        <button class="mnote-del" data-id="${a.id}" title="Delete highlight">✕</button>
+      </div>
+    </div>`).join("");
+
+  box.querySelectorAll(".mnote-quote").forEach(q => {
+    q.addEventListener("click", () => scrollToHighlight(q.closest(".mnote").dataset.id));
+  });
+  box.querySelectorAll(".mnote-text").forEach(t => {
+    t.addEventListener("input", e => {
+      const a = story.annotations.find(x => x.id === e.target.dataset.id);
+      if (a) { a.note = e.target.value; touch(story); }
+    });
+  });
+  box.querySelectorAll(".swatch-row .sw").forEach(sw => {
+    sw.addEventListener("click", () => {
+      const a = story.annotations.find(x => x.id === sw.dataset.id);
+      if (a) { a.color = sw.dataset.color; touch(story); paintText(story); renderMargin(story); }
+    });
+  });
+  box.querySelectorAll(".mnote-del").forEach(d => {
+    d.addEventListener("click", () => {
+      story.annotations = story.annotations.filter(x => x.id !== d.dataset.id);
+      touch(story);
+      paintText(story);
+      renderMargin(story);
+      syncReaderSummary(story);
+    });
+  });
+}
+
+function scrollToHighlight(id) {
+  const span = document.querySelector(`#readerText .hl[data-ids~="${id}"]`);
+  if (!span) return;
+  span.scrollIntoView({ behavior: "smooth", block: "center" });
+  span.classList.add("flash-hl");
+  setTimeout(() => span.classList.remove("flash-hl"), 1200);
+}
+function focusNote(id) {
+  const note = document.querySelector(`#marginNotes .mnote[data-id="${id}"]`);
+  if (!note) return;
+  note.scrollIntoView({ behavior: "smooth", block: "center" });
+  note.classList.add("flash-note");
+  setTimeout(() => note.classList.remove("flash-note"), 1200);
+  const ta = note.querySelector(".mnote-text");
+  if (ta) ta.focus();
+}
+
+function syncReaderSummary(story) {
+  const sum = document.querySelector("#readerPanel summary");
+  if (!sum) return;
+  const n = story.annotations.length;
+  sum.innerHTML = `📖 Story text — highlight &amp; annotate ${n ? `<span class="hl-count">${n} highlight${n === 1 ? "" : "s"}</span>` : ""}`;
+}
+
+function bindReader(story) {
+  const textEl = document.getElementById("readerText");
+  const toolbar = document.getElementById("hlToolbar");
+
+  document.getElementById("editTextBtn").addEventListener("click", () => {
+    if (!confirm("Replace the story text? Existing highlights may no longer line up with the new text.")) return;
+    story.bodyText = "";
+    story.annotations = [];
+    touch(story);
+    renderReader(story);
+    syncReaderSummary(story);
+  });
+
+  let pending = null;   // {start,end} awaiting a colour choice
+
+  function hideToolbar() { toolbar.hidden = true; pending = null; }
+
+  function onSelect() {
+    const sel = selectionOffsets(textEl);
+    if (!sel) { return; }
+    pending = sel;
+    const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+    const host = document.getElementById("readerPanel").getBoundingClientRect();
+    toolbar.hidden = false;
+    // position above the selection, clamped inside the panel
+    const tw = toolbar.offsetWidth || 180;
+    let left = rect.left - host.left + rect.width / 2 - tw / 2;
+    left = Math.max(4, Math.min(left, host.width - tw - 4));
+    toolbar.style.left = left + "px";
+    toolbar.style.top = (rect.top - host.top - toolbar.offsetHeight - 8) + "px";
+  }
+
+  textEl.addEventListener("mouseup", () => setTimeout(onSelect, 0));
+  textEl.addEventListener("touchend", () => setTimeout(onSelect, 0));
+
+  function commit(color, addNote) {
+    if (!pending) return;
+    const a = {
+      id: newAnnId(), start: pending.start, end: pending.end,
+      color, note: "", quote: story.bodyText.slice(pending.start, pending.end)
+    };
+    story.annotations.push(a);
+    touch(story);
+    window.getSelection().removeAllRanges();
+    hideToolbar();
+    paintText(story);
+    renderMargin(story);
+    syncReaderSummary(story);
+    if (addNote) focusNote(a.id);
+  }
+
+  toolbar.querySelectorAll(".sw").forEach(sw =>
+    sw.addEventListener("mousedown", e => { e.preventDefault(); commit(sw.dataset.color, false); }));
+  toolbar.querySelector("#hlNoteBtn").addEventListener("mousedown", e => {
+    e.preventDefault(); commit("yellow", true);
+  });
+
+  // dismiss toolbar when clicking elsewhere / losing the selection
+  document.addEventListener("mousedown", e => {
+    if (!toolbar.hidden && !toolbar.contains(e.target) && e.target.closest("#readerText") === null) hideToolbar();
+  });
+}
+
+function bindEditor(story) {
+  const bindText = (id, prop, relib) => {
+    document.getElementById(id).addEventListener("input", e => {
+      story[prop] = e.target.value;
+      touch(story);
+      if (prop === "url") {
+        const link = document.getElementById("openLink");
+        link.href = e.target.value;
+        link.classList.toggle("disabled", !isNoSleepUrl(e.target.value));
+      }
+      if (relib) renderLibrary();
+    });
+  };
+  bindText("fTitle", "title", true);
+  bindText("fAuthor", "author", true);
+  bindText("fUrl", "url", false);
+  bindText("fNotes", "notes", false);
+
+  // Auto-fill the title from the pasted link's slug — only when the title is still empty,
+  // so it never clobbers something you typed. The button below forces a re-fill on demand.
+  document.getElementById("fUrl").addEventListener("input", e => {
+    if (story.title.trim()) return;
+    const p = parseRedditSlug(e.target.value);
+    if (p && p.title) {
+      story.title = p.title;
+      document.getElementById("fTitle").value = p.title;
+      touch(story);
+      renderLibrary();
+    }
+  });
+  // Pasting an app share link can't yield a title — say so at the moment it happens.
+  document.getElementById("fUrl").addEventListener("paste", () => {
+    setTimeout(() => {
+      const url = document.getElementById("fUrl").value;
+      if (!story.title.trim() && !parseRedditSlug(url) && isRedditShareLink(url)) {
+        flash("Share link — tap Open read then copy the full address, or use the bookmarklet, for the title");
+      }
+    }, 0);
+  });
+  document.getElementById("titleFromUrl").addEventListener("click", () => {
+    const url = document.getElementById("fUrl").value;
+    const p = parseRedditSlug(url);
+    if (!p || !p.title) {
+      flash(isRedditShareLink(url)
+        ? "Share link has no title — tap Open read, copy the full address, or use the bookmarklet"
+        : "Need a full …/comments/…/title/ link to read the title from");
+      return;
+    }
+    if (story.title.trim() && !confirm(`Replace the title with "${p.title}"?`)) return;
+    story.title = p.title;
+    document.getElementById("fTitle").value = p.title;
+    touch(story);
+    renderLibrary();
+    flash("Title from link — edit as needed");
+  });
+
+  // axis scoring — one click
+  $main.querySelectorAll(".segs").forEach(row => {
+    const key = row.dataset.axis;
+    row.addEventListener("click", e => {
+      const seg = e.target.closest(".seg");
+      if (!seg) return;
+      const n = Number(seg.dataset.n);
+      // click the current value again to clear it
+      story.scores[key] = (story.scores[key] === n) ? null : n;
+      const v = story.scores[key];
+      row.querySelectorAll(".seg").forEach(s => {
+        const sn = Number(s.dataset.n);
+        s.classList.toggle("on", v === sn);
+        s.classList.toggle("filled", v !== null && sn <= v);
+      });
+      touch(story);
+      refreshComposite(story);
+      renderLibrary();
+    });
+  });
+
+  // frame integrity toggle
+  document.getElementById("frameSwitch").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    story.frameIntact = b.dataset.v === "1";
+    const btns = e.currentTarget.querySelectorAll("button");
+    btns[0].className = story.frameIntact ? "on" : "";
+    btns[1].className = story.frameIntact ? "" : "on broken";
+    touch(story);
+    renderLibrary();
+  });
+
+  // delete
+  document.getElementById("deleteBtn").addEventListener("click", () => {
+    if (!confirm(`Delete "${story.title || "Untitled read"}"?`)) return;
+    state.stories = state.stories.filter(s => s.id !== story.id);
+    activeId = state.stories.length ? state.stories[0].id : null;
+    save();
+    renderLibrary();
+    renderEditor();
+  });
+}
+
+/* ================= Global controls ================= */
+document.getElementById("newBtn").addEventListener("click", () => {
+  const s = newStory();
+  state.stories.unshift(s);
+  activeId = s.id;
+  save();
+  renderLibrary();
+  renderEditor();
+  document.getElementById("fTitle").focus();
+});
+
+document.getElementById("sortSelect").addEventListener("change", renderLibrary);
+
+document.getElementById("exportJsonBtn").addEventListener("click", () =>
+  download("nosleep-ledger-" + new Date().toISOString().slice(0, 10) + ".json",
+    JSON.stringify(state, null, 2), "application/json"));
+
+document.getElementById("exportMdBtn").addEventListener("click", () => {
+  const rows = [...state.stories].sort((a, b) => (composite(b) ?? -1) - (composite(a) ?? -1));
+  let md = `# NoSleep Ledger — export ${new Date().toISOString().slice(0, 10)}\n\n`;
+  md += `${state.stories.length} stor${state.stories.length === 1 ? "y" : "ies"}. Axes: ${AXES.map(a => a.label).join(" · ")}. Scores 1–5; composite is a straight mean.\n\n`;
+  rows.forEach(s => {
+    const c = composite(s);
+    md += `## ${s.title || "Untitled read"}\n`;
+    if (s.author) md += `- **Author:** u/${s.author.replace(/^u\//, "")}\n`;
+    if (s.url) md += `- **Link:** ${s.url}\n`;
+    md += `- **Frame:** ${s.frameIntact ? "intact" : "breaks"}\n`;
+    md += `- **Composite:** ${c === null ? "unrated" : c.toFixed(1) + " / 5"}\n`;
+    md += `- **Scores:** ${AXES.map(a => `${a.label} ${s.scores[a.key] ?? "–"}`).join(" · ")}\n`;
+    if (s.notes) md += `\n${s.notes}\n`;
+    if (s.annotations && s.annotations.length) {
+      md += `\n**Highlights**\n`;
+      [...s.annotations].sort((a, b) => a.start - b.start).forEach(a => {
+        md += `- “${(a.quote || "").replace(/\s+/g, " ").trim()}”${a.note ? ` — ${a.note.replace(/\s+/g, " ").trim()}` : ""}\n`;
+      });
+    }
+    md += `\n`;
+  });
+  download("nosleep-ledger-" + new Date().toISOString().slice(0, 10) + ".md", md, "text/markdown");
+});
+
+document.getElementById("importBtn").addEventListener("click", () =>
+  document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.stories)) throw new Error("bad");
+      const existing = new Set(state.stories.map(s => s.id));
+      let added = 0;
+      data.stories.forEach(s => { if (!existing.has(s.id)) { state.stories.push(s); added++; } });
+      save();
+      renderLibrary();
+      flash(`Imported ${added} stor${added === 1 ? "y" : "ies"}`);
+    } catch (err) { flash("⚠ Not a valid Ledger export"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* Build the bookmarklet, pointed back at wherever this page is actually hosted. */
+function buildBookmarklet() {
+  const base = location.origin + location.pathname;
+  // Runs on the Reddit post (same-origin there), reads title + author from the DOM,
+  // then hands them to this page via #add=. Covers new (shreddit) and old reddit.
+  const code =
+    "javascript:(function(){" +
+    "var p=document.querySelector('shreddit-post');" +
+    "var t=p&&(p.getAttribute('post-title')||p.getAttribute('data-title'));" +
+    "var a=p&&p.getAttribute('author');" +
+    "if(!t){t=document.title.replace(/\\s*[:\\-]\\s*r\\/nosleep.*$/i,'').replace(/\\s*[:\\-]\\s*reddit.*$/i,'').trim();}" +
+    "if(!a){var e=document.querySelector('a[href^=\"/user/\"],a[href*=\"/user/\"]');if(e){a=e.textContent.replace(/^u\\//,'').trim();}}" +
+    // grab the post body text from new or old reddit, fall back to the post element's text
+    "var bEl=document.querySelector('[slot=\"text-body\"],[property=\"schema:articleBody\"],.md,[data-test-id=\"post-content\"] .RichTextJSON-root')||p;" +
+    "var b=bEl?(bEl.innerText||bEl.textContent||''):'';" +
+    "b=b.replace(/\\n{3,}/g,'\\n\\n').trim();" +
+    "var u=location.href.split('?')[0].split('#')[0];" +
+    "var payload={title:t||'',author:a||'',url:u};" +
+    // only carry the body in the URL if it's short enough to be safe; else paste it in the app
+    "if(b&&b.length<12000){payload.body=b;}" +
+    "var d=encodeURIComponent(JSON.stringify(payload));" +
+    "location.href=" + JSON.stringify(base) + "+'#add='+d;" +
+    "if(b&&b.length>=12000){alert('Story is long — title/author grabbed. Paste the text into the Ledger reader (it is on your clipboard if you copied it).');}" +
+    "})();";
+  const link = document.getElementById("bmLink");
+  const box = document.getElementById("bmCode");
+  if (link) link.setAttribute("href", code);
+  if (box) box.value = code;
+}
+
+// If the tab is already open and the bookmarklet only changes the hash, no reload fires —
+// catch that here so the import still runs.
+window.addEventListener("hashchange", () => {
+  if (importFromHash()) {
+    renderLibrary();
+    renderEditor();
+    document.getElementById("fTitle").focus();
+    flash("Added from Reddit link");
+  }
+});
+
+/* ================= Boot ================= */
+const cameFromReddit = importFromHash();
+buildBookmarklet();
+renderLibrary();
+renderEditor();
+if (cameFromReddit) { document.getElementById("fTitle").focus(); flash("Added from Reddit link"); }
+</script>
+</body>
+</html>
