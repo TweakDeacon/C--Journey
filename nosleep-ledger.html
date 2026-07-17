@@ -492,6 +492,12 @@ function parseRedditSlug(url) {
   } catch (e) { return null; }
 }
 
+// Reddit app "Share → Copy link" produces /s/<code> (and redd.it/<id>) short links.
+// These are opaque redirects — the title isn't in them and can't be resolved client-side.
+function isRedditShareLink(url) {
+  return /reddit\.com\/(?:r\/[^/]+\/)?s\/[\w-]+/i.test(url) || /(?:^|\/\/)redd\.it\/\w+/i.test(url);
+}
+
 /* Optional bookmarklet handoff: a bookmark run ON the Reddit post opens the Ledger
    with #add=<json>, letting us grab the exact title + author cross-origin-free. */
 function importFromHash() {
@@ -647,7 +653,7 @@ function renderEditor() {
       <div class="field"><label>Author (u/…)</label><input id="fAuthor" value="${esc(story.author)}" placeholder="username"></div>
     </div>
     <div class="url-row">
-      <div class="field"><label>Link to the post</label><input id="fUrl" value="${esc(story.url)}" placeholder="Paste the reddit.com/r/nosleep/… link — title auto-fills from it"></div>
+      <div class="field"><label>Link to the post</label><input id="fUrl" value="${esc(story.url)}" placeholder="Paste a full …/comments/…/title/ link — title auto-fills (app /s/ share links can't carry a title)"></div>
       <button class="open-link" id="titleFromUrl" title="Fill the title from the link's slug">⤵ Title from link</button>
       <a class="open-link ${isNoSleepUrl(story.url) ? "" : "disabled"}" id="openLink" href="${esc(story.url)}" target="_blank" rel="noopener noreferrer">↗ Open read</a>
     </div>
@@ -983,9 +989,24 @@ function bindEditor(story) {
       renderLibrary();
     }
   });
+  // Pasting an app share link can't yield a title — say so at the moment it happens.
+  document.getElementById("fUrl").addEventListener("paste", () => {
+    setTimeout(() => {
+      const url = document.getElementById("fUrl").value;
+      if (!story.title.trim() && !parseRedditSlug(url) && isRedditShareLink(url)) {
+        flash("Share link — tap Open read then copy the full address, or use the bookmarklet, for the title");
+      }
+    }, 0);
+  });
   document.getElementById("titleFromUrl").addEventListener("click", () => {
-    const p = parseRedditSlug(document.getElementById("fUrl").value);
-    if (!p || !p.title) { flash("No title slug in that link"); return; }
+    const url = document.getElementById("fUrl").value;
+    const p = parseRedditSlug(url);
+    if (!p || !p.title) {
+      flash(isRedditShareLink(url)
+        ? "Share link has no title — tap Open read, copy the full address, or use the bookmarklet"
+        : "Need a full …/comments/…/title/ link to read the title from");
+      return;
+    }
     if (story.title.trim() && !confirm(`Replace the title with "${p.title}"?`)) return;
     story.title = p.title;
     document.getElementById("fTitle").value = p.title;
