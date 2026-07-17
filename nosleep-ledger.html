@@ -226,6 +226,76 @@
 
   .story-actions { display: flex; gap: 8px; margin-top: 18px; }
 
+  /* ---------- Reader / annotation ---------- */
+  .reader-panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); margin-bottom: 16px; position: relative; }
+  .reader-panel summary { padding: 12px 16px; cursor: pointer; font-size: 0.9rem; font-weight: 600; list-style: none; }
+  .reader-panel summary::-webkit-details-marker { display: none; }
+  .reader-panel[open] summary { border-bottom: 1px solid var(--border); }
+  .hl-count { font-size: 0.72rem; font-weight: 400; color: var(--glow); margin-left: 8px; }
+  #readerBody { padding: 14px 16px; }
+
+  .paste-box { display: flex; flex-direction: column; gap: 10px; }
+  .paste-hint { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  #pasteArea {
+    width: 100%; min-height: 160px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-family: inherit; font-size: 0.9rem; resize: vertical;
+  }
+  #pasteArea:focus { outline: none; border-color: var(--moon); }
+
+  .reader-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .reader-grid { grid-template-columns: 1fr; } }
+  .reader-text {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 18px; max-height: 60vh; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word; line-height: 1.7; font-size: 0.96rem;
+    -webkit-user-select: text; user-select: text;
+  }
+  .reader-text .hl { border-radius: 3px; cursor: pointer; padding: 1px 0; }
+  .reader-text .hl.flash-hl { outline: 2px solid var(--moon); outline-offset: 1px; }
+
+  .margin-notes { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+  .margin-notes .no-notes { color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+  .mnote { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  .mnote.flash-note { border-color: var(--moon); box-shadow: 0 0 0 1px var(--moon); }
+  .mnote-quote { font-size: 0.76rem; color: var(--muted); font-style: italic; cursor: pointer; border-left: 3px solid var(--border); padding-left: 8px; margin-bottom: 7px; line-height: 1.4; }
+  .mnote-quote:hover { color: var(--text); }
+  .mnote-text {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; font-family: inherit; font-size: 0.82rem; resize: vertical; min-height: 34px;
+  }
+  .mnote-text:focus { outline: none; border-color: var(--moon); }
+  .mnote-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; }
+  .swatch-row { display: flex; gap: 5px; }
+  .mnote-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+  .mnote-del:hover { color: var(--warn); }
+
+  .reader-tools { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .reader-tools .hint { font-size: 0.76rem; color: var(--muted); }
+
+  .sw { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+  .sw.on { border-color: var(--text); }
+  .sw-yellow { background: rgba(232,180,90,0.9); }
+  .sw-green  { background: rgba(90,209,196,0.9); }
+  .sw-pink   { background: rgba(224,96,122,0.9); }
+  .sw-purple { background: rgba(139,156,255,0.9); }
+  .mnote-quote.sw-yellow { border-left-color: rgba(232,180,90,0.9); }
+  .mnote-quote.sw-green  { border-left-color: rgba(90,209,196,0.9); }
+  .mnote-quote.sw-pink   { border-left-color: rgba(224,96,122,0.9); }
+  .mnote-quote.sw-purple { border-left-color: rgba(139,156,255,0.9); }
+
+  .hl-toolbar {
+    position: absolute; z-index: 40; display: flex; align-items: center; gap: 7px;
+    background: var(--panel2); border: 1px solid var(--moon); border-radius: 9px;
+    padding: 7px 9px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  }
+  .hl-toolbar[hidden] { display: none; }
+  .hl-toolbar .sw-note {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 9px; font-size: 0.76rem; cursor: pointer;
+  }
+  .hl-toolbar .sw-note:hover { border-color: var(--moon); }
+
   .flash {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: var(--panel2); border: 1px solid var(--moon); color: var(--text);
@@ -292,7 +362,7 @@
       <div class="gh-body">
         <p>Two ways to skip retyping, both with no server and no CORS proxy:</p>
         <p><b>1 · Paste the link.</b> When you paste a post URL into a new story, the title auto-fills from the link itself. Reliable, but it can't get the author.</p>
-        <p><b>2 · Bookmarklet</b> (also grabs the <i>author</i> and exact title). Save this as a bookmark, then tap it while you're on the Reddit post — it opens the Ledger with a new story already filled in.</p>
+        <p><b>2 · Bookmarklet</b> (also grabs the <i>author</i>, exact title, and the full <i>story text</i> for highlighting). Save this as a bookmark, then tap it while you're on the Reddit post — it opens the Ledger with a new story already filled in.</p>
         <a class="bm-link" id="bmLink" href="#">🔖 Add to Ledger</a>
         <p class="gh-note">Drag that to your bookmarks bar on desktop. On iPhone: bookmark this page, then edit the bookmark and replace its address with the code below.</p>
         <textarea id="bmCode" class="bm-code" readonly rows="3" onclick="this.select()"></textarea>
@@ -338,7 +408,14 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const d = JSON.parse(raw);
-      if (d && Array.isArray(d.stories)) return d;
+      if (d && Array.isArray(d.stories)) {
+        // backfill fields added in later versions
+        d.stories.forEach(s => {
+          if (typeof s.bodyText !== "string") s.bodyText = "";
+          if (!Array.isArray(s.annotations)) s.annotations = [];
+        });
+        return d;
+      }
     }
   } catch (e) { console.warn("load failed", e); }
   return { stories: [] };
@@ -362,9 +439,20 @@ function newStory() {
     frameIntact: true,          // binary tag, not an axis
     scores,
     notes: "",
+    bodyText: "",               // the story's text, for highlighting
+    annotations: [],            // { id, start, end, color, note, quote }
     createdAt: Date.now(), updatedAt: Date.now()
   };
 }
+
+const HL_COLORS = {
+  yellow: "rgba(232,180,90,0.38)",
+  green:  "rgba(90,209,196,0.34)",
+  pink:   "rgba(224,96,122,0.34)",
+  purple: "rgba(139,156,255,0.34)"
+};
+function hlColor(name) { return HL_COLORS[name] || HL_COLORS.yellow; }
+function newAnnId() { return "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
 
 function getStory(id) { return state.stories.find(s => s.id === id); }
 
@@ -415,6 +503,7 @@ function importFromHash() {
     s.title = (data.title || "").trim();
     s.author = (data.author || "").trim().replace(/^u\//, "");
     s.url = (data.url || "").trim();
+    if (typeof data.body === "string") s.bodyText = data.body.replace(/\r\n/g, "\n").trim();
     if (!s.title && s.url) { const p = parseRedditSlug(s.url); if (p) s.title = p.title; }
     state.stories.unshift(s);
     activeId = s.id;
@@ -563,6 +652,11 @@ function renderEditor() {
       <a class="open-link ${isNoSleepUrl(story.url) ? "" : "disabled"}" id="openLink" href="${esc(story.url)}" target="_blank" rel="noopener noreferrer">↗ Open read</a>
     </div>
 
+    <details class="reader-panel" id="readerPanel" open>
+      <summary>📖 Story text — highlight &amp; annotate ${story.annotations.length ? `<span class="hl-count">${story.annotations.length} highlight${story.annotations.length === 1 ? "" : "s"}</span>` : ""}</summary>
+      <div id="readerBody"></div>
+    </details>
+
     <div class="work-grid">
       <section class="panel">
         <h3>Seven axes</h3>
@@ -620,6 +714,7 @@ function renderEditor() {
     </div>`;
 
   bindEditor(story);
+  renderReader(story);
 }
 
 function refreshComposite(story) {
@@ -628,6 +723,234 @@ function refreshComposite(story) {
   num.textContent = c === null ? "—" : c.toFixed(1);
   num.className = "num " + (c === null ? "" : compClass(c));
   document.getElementById("bigBarcode").innerHTML = barcodeHTML(story, true);
+}
+
+/* ================= Reader: highlight & annotate ================= */
+
+// Global char offset from container start to a DOM (node, offset) boundary.
+// container.textContent equals story.bodyText, so the length IS the offset.
+function offsetOf(container, node, nodeOffset) {
+  const r = document.createRange();
+  r.selectNodeContents(container);
+  try { r.setEnd(node, nodeOffset); } catch (e) { return null; }
+  return r.toString().length;
+}
+function selectionOffsets(container) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  if (!container.contains(r.startContainer) || !container.contains(r.endContainer)) return null;
+  const a = offsetOf(container, r.startContainer, r.startOffset);
+  const b = offsetOf(container, r.endContainer, r.endOffset);
+  if (a == null || b == null || a === b) return null;
+  return { start: Math.min(a, b), end: Math.max(a, b) };
+}
+
+function renderReader(story) {
+  const host = document.getElementById("readerBody");
+  if (!host) return;
+
+  if (!story.bodyText) {
+    host.innerHTML = `
+      <div class="paste-box">
+        <p class="paste-hint">Paste the story's text below (select-all on the Reddit post → copy → paste), or use the <b>bookmarklet</b> in the sidebar to pull it in automatically. Then select any passage to highlight and add a note.</p>
+        <textarea id="pasteArea" placeholder="Paste the full story text here…"></textarea>
+        <button class="btn primary small" id="savePasteBtn">Load text</button>
+      </div>`;
+    host.querySelector("#savePasteBtn").addEventListener("click", () => {
+      const t = host.querySelector("#pasteArea").value.replace(/\r\n/g, "\n").trim();
+      if (!t) { flash("Nothing to load"); return; }
+      story.bodyText = t;
+      touch(story);
+      renderReader(story);
+      syncReaderSummary(story);
+    });
+    return;
+  }
+
+  host.innerHTML = `
+    <div class="reader-grid">
+      <div class="reader-text" id="readerText"></div>
+      <div class="margin-notes" id="marginNotes"></div>
+    </div>
+    <div class="reader-tools">
+      <button class="btn small" id="editTextBtn">✎ Edit / replace text</button>
+      <span class="hint">Select any passage → pick a colour or add a note.</span>
+    </div>
+    <div class="hl-toolbar" id="hlToolbar" hidden>
+      ${Object.keys(HL_COLORS).map(c => `<button class="sw sw-${c}" data-color="${c}" title="Highlight ${c}"></button>`).join("")}
+      <button class="sw-note" id="hlNoteBtn" title="Highlight + add note">✎ note</button>
+    </div>`;
+
+  paintText(story);
+  renderMargin(story);
+  bindReader(story);
+}
+
+// Render the text with highlight spans, using a boundary sweep so overlaps are safe.
+function paintText(story) {
+  const el = document.getElementById("readerText");
+  const text = story.bodyText;
+  const anns = story.annotations
+    .map(a => ({ ...a, start: Math.max(0, Math.min(a.start, text.length)), end: Math.max(0, Math.min(a.end, text.length)) }))
+    .filter(a => a.end > a.start);
+
+  const pts = new Set([0, text.length]);
+  anns.forEach(a => { pts.add(a.start); pts.add(a.end); });
+  const cuts = [...pts].sort((x, y) => x - y);
+
+  let html = "";
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const s = cuts[i], e = cuts[i + 1];
+    const seg = esc(text.slice(s, e));
+    const cover = anns.filter(a => a.start <= s && a.end >= e);
+    if (cover.length) {
+      const top = cover[cover.length - 1];
+      const ids = cover.map(a => a.id).join(" ");
+      html += `<span class="hl" data-ids="${ids}" style="background:${hlColor(top.color)}">${seg}</span>`;
+    } else {
+      html += seg;
+    }
+  }
+  el.innerHTML = html;
+
+  // clicking a highlight focuses its margin note
+  el.querySelectorAll(".hl").forEach(span => {
+    span.addEventListener("click", () => {
+      const id = span.dataset.ids.split(" ")[0];
+      focusNote(id);
+    });
+  });
+}
+
+function renderMargin(story) {
+  const box = document.getElementById("marginNotes");
+  if (!story.annotations.length) {
+    box.innerHTML = '<div class="no-notes">No highlights yet.<br>Select text on the left to start.</div>';
+    return;
+  }
+  const ordered = [...story.annotations].sort((a, b) => a.start - b.start);
+  box.innerHTML = ordered.map(a => `
+    <div class="mnote" data-id="${a.id}">
+      <div class="mnote-quote sw-${a.color}" title="Jump to this passage">“${esc((a.quote || "").slice(0, 140))}${(a.quote || "").length > 140 ? "…" : ""}”</div>
+      <textarea class="mnote-text" data-id="${a.id}" placeholder="Add a note…">${esc(a.note || "")}</textarea>
+      <div class="mnote-foot">
+        <span class="swatch-row">${Object.keys(HL_COLORS).map(c => `<button class="sw sw-${c} ${a.color === c ? "on" : ""}" data-id="${a.id}" data-color="${c}"></button>`).join("")}</span>
+        <button class="mnote-del" data-id="${a.id}" title="Delete highlight">✕</button>
+      </div>
+    </div>`).join("");
+
+  box.querySelectorAll(".mnote-quote").forEach(q => {
+    q.addEventListener("click", () => scrollToHighlight(q.closest(".mnote").dataset.id));
+  });
+  box.querySelectorAll(".mnote-text").forEach(t => {
+    t.addEventListener("input", e => {
+      const a = story.annotations.find(x => x.id === e.target.dataset.id);
+      if (a) { a.note = e.target.value; touch(story); }
+    });
+  });
+  box.querySelectorAll(".swatch-row .sw").forEach(sw => {
+    sw.addEventListener("click", () => {
+      const a = story.annotations.find(x => x.id === sw.dataset.id);
+      if (a) { a.color = sw.dataset.color; touch(story); paintText(story); renderMargin(story); }
+    });
+  });
+  box.querySelectorAll(".mnote-del").forEach(d => {
+    d.addEventListener("click", () => {
+      story.annotations = story.annotations.filter(x => x.id !== d.dataset.id);
+      touch(story);
+      paintText(story);
+      renderMargin(story);
+      syncReaderSummary(story);
+    });
+  });
+}
+
+function scrollToHighlight(id) {
+  const span = document.querySelector(`#readerText .hl[data-ids~="${id}"]`);
+  if (!span) return;
+  span.scrollIntoView({ behavior: "smooth", block: "center" });
+  span.classList.add("flash-hl");
+  setTimeout(() => span.classList.remove("flash-hl"), 1200);
+}
+function focusNote(id) {
+  const note = document.querySelector(`#marginNotes .mnote[data-id="${id}"]`);
+  if (!note) return;
+  note.scrollIntoView({ behavior: "smooth", block: "center" });
+  note.classList.add("flash-note");
+  setTimeout(() => note.classList.remove("flash-note"), 1200);
+  const ta = note.querySelector(".mnote-text");
+  if (ta) ta.focus();
+}
+
+function syncReaderSummary(story) {
+  const sum = document.querySelector("#readerPanel summary");
+  if (!sum) return;
+  const n = story.annotations.length;
+  sum.innerHTML = `📖 Story text — highlight &amp; annotate ${n ? `<span class="hl-count">${n} highlight${n === 1 ? "" : "s"}</span>` : ""}`;
+}
+
+function bindReader(story) {
+  const textEl = document.getElementById("readerText");
+  const toolbar = document.getElementById("hlToolbar");
+
+  document.getElementById("editTextBtn").addEventListener("click", () => {
+    if (!confirm("Replace the story text? Existing highlights may no longer line up with the new text.")) return;
+    story.bodyText = "";
+    story.annotations = [];
+    touch(story);
+    renderReader(story);
+    syncReaderSummary(story);
+  });
+
+  let pending = null;   // {start,end} awaiting a colour choice
+
+  function hideToolbar() { toolbar.hidden = true; pending = null; }
+
+  function onSelect() {
+    const sel = selectionOffsets(textEl);
+    if (!sel) { return; }
+    pending = sel;
+    const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+    const host = document.getElementById("readerPanel").getBoundingClientRect();
+    toolbar.hidden = false;
+    // position above the selection, clamped inside the panel
+    const tw = toolbar.offsetWidth || 180;
+    let left = rect.left - host.left + rect.width / 2 - tw / 2;
+    left = Math.max(4, Math.min(left, host.width - tw - 4));
+    toolbar.style.left = left + "px";
+    toolbar.style.top = (rect.top - host.top - toolbar.offsetHeight - 8) + "px";
+  }
+
+  textEl.addEventListener("mouseup", () => setTimeout(onSelect, 0));
+  textEl.addEventListener("touchend", () => setTimeout(onSelect, 0));
+
+  function commit(color, addNote) {
+    if (!pending) return;
+    const a = {
+      id: newAnnId(), start: pending.start, end: pending.end,
+      color, note: "", quote: story.bodyText.slice(pending.start, pending.end)
+    };
+    story.annotations.push(a);
+    touch(story);
+    window.getSelection().removeAllRanges();
+    hideToolbar();
+    paintText(story);
+    renderMargin(story);
+    syncReaderSummary(story);
+    if (addNote) focusNote(a.id);
+  }
+
+  toolbar.querySelectorAll(".sw").forEach(sw =>
+    sw.addEventListener("mousedown", e => { e.preventDefault(); commit(sw.dataset.color, false); }));
+  toolbar.querySelector("#hlNoteBtn").addEventListener("mousedown", e => {
+    e.preventDefault(); commit("yellow", true);
+  });
+
+  // dismiss toolbar when clicking elsewhere / losing the selection
+  document.addEventListener("mousedown", e => {
+    if (!toolbar.hidden && !toolbar.contains(e.target) && e.target.closest("#readerText") === null) hideToolbar();
+  });
 }
 
 function bindEditor(story) {
@@ -745,6 +1068,12 @@ document.getElementById("exportMdBtn").addEventListener("click", () => {
     md += `- **Composite:** ${c === null ? "unrated" : c.toFixed(1) + " / 5"}\n`;
     md += `- **Scores:** ${AXES.map(a => `${a.label} ${s.scores[a.key] ?? "–"}`).join(" · ")}\n`;
     if (s.notes) md += `\n${s.notes}\n`;
+    if (s.annotations && s.annotations.length) {
+      md += `\n**Highlights**\n`;
+      [...s.annotations].sort((a, b) => a.start - b.start).forEach(a => {
+        md += `- “${(a.quote || "").replace(/\s+/g, " ").trim()}”${a.note ? ` — ${a.note.replace(/\s+/g, " ").trim()}` : ""}\n`;
+      });
+    }
     md += `\n`;
   });
   download("nosleep-ledger-" + new Date().toISOString().slice(0, 10) + ".md", md, "text/markdown");
@@ -784,9 +1113,17 @@ function buildBookmarklet() {
     "var a=p&&p.getAttribute('author');" +
     "if(!t){t=document.title.replace(/\\s*[:\\-]\\s*r\\/nosleep.*$/i,'').replace(/\\s*[:\\-]\\s*reddit.*$/i,'').trim();}" +
     "if(!a){var e=document.querySelector('a[href^=\"/user/\"],a[href*=\"/user/\"]');if(e){a=e.textContent.replace(/^u\\//,'').trim();}}" +
+    // grab the post body text from new or old reddit, fall back to the post element's text
+    "var bEl=document.querySelector('[slot=\"text-body\"],[property=\"schema:articleBody\"],.md,[data-test-id=\"post-content\"] .RichTextJSON-root')||p;" +
+    "var b=bEl?(bEl.innerText||bEl.textContent||''):'';" +
+    "b=b.replace(/\\n{3,}/g,'\\n\\n').trim();" +
     "var u=location.href.split('?')[0].split('#')[0];" +
-    "var d=encodeURIComponent(JSON.stringify({title:t||'',author:a||'',url:u}));" +
+    "var payload={title:t||'',author:a||'',url:u};" +
+    // only carry the body in the URL if it's short enough to be safe; else paste it in the app
+    "if(b&&b.length<12000){payload.body=b;}" +
+    "var d=encodeURIComponent(JSON.stringify(payload));" +
     "location.href=" + JSON.stringify(base) + "+'#add='+d;" +
+    "if(b&&b.length>=12000){alert('Story is long — title/author grabbed. Paste the text into the Ledger reader (it is on your clipboard if you copied it).');}" +
     "})();";
   const link = document.getElementById("bmLink");
   const box = document.getElementById("bmCode");
