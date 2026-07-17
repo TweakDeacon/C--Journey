@@ -130,6 +130,24 @@
 
   .io-row { display: flex; gap: 8px; }
   .io-row .btn { flex: 1; }
+
+  .grab-help { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+  .grab-help summary { padding: 9px 12px; cursor: pointer; font-size: 0.8rem; color: var(--muted); list-style: none; }
+  .grab-help summary::-webkit-details-marker { display: none; }
+  .grab-help[open] summary { border-bottom: 1px solid var(--border); color: var(--text); }
+  .gh-body { padding: 11px 12px; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+  .gh-body p { margin-bottom: 8px; }
+  .gh-body b { color: var(--text); }
+  .gh-note { font-size: 0.7rem; }
+  .bm-link {
+    display: inline-block; padding: 7px 13px; border-radius: 7px; margin: 2px 0 8px;
+    background: #2a2f63; border: 1px solid var(--moon); color: #fff; text-decoration: none; font-size: 0.82rem;
+  }
+  .bm-code {
+    width: 100%; background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 7px; padding: 7px 9px; font-family: "Consolas", monospace; font-size: 0.66rem;
+    resize: vertical; word-break: break-all; margin-bottom: 6px;
+  }
   .empty-lib { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 22px 10px; }
 
   /* ---------- Main editor ---------- */
@@ -268,6 +286,19 @@
       <button class="btn small" id="importBtn" title="Load library from JSON">⬆ Import</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
+
+    <details class="grab-help" id="grabHelp">
+      <summary>↗ Auto-grab from a Reddit post</summary>
+      <div class="gh-body">
+        <p>Two ways to skip retyping, both with no server and no CORS proxy:</p>
+        <p><b>1 · Paste the link.</b> When you paste a post URL into a new story, the title auto-fills from the link itself. Reliable, but it can't get the author.</p>
+        <p><b>2 · Bookmarklet</b> (also grabs the <i>author</i> and exact title). Save this as a bookmark, then tap it while you're on the Reddit post — it opens the Ledger with a new story already filled in.</p>
+        <a class="bm-link" id="bmLink" href="#">🔖 Add to Ledger</a>
+        <p class="gh-note">Drag that to your bookmarks bar on desktop. On iPhone: bookmark this page, then edit the bookmark and replace its address with the code below.</p>
+        <textarea id="bmCode" class="bm-code" readonly rows="3" onclick="this.select()"></textarea>
+        <p class="gh-note">Best-effort: if Reddit changes their page markup it may miss the author — the pasted-link title always works as a fallback.</p>
+      </div>
+    </details>
   </aside>
 
   <main id="main"></main>
@@ -359,6 +390,40 @@ function flash(msg) {
   flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
 }
 function isNoSleepUrl(u) { return /^https?:\/\//i.test(u); }
+
+/* Derive a starting title from a Reddit post URL slug — no network, always works.
+   .../r/nosleep/comments/1abc23/my_grandfathers_cabin_has_a_rule/ -> "My Grandfathers Cabin Has A Rule"
+   Reddit lowercases the slug and strips punctuation, so it's a first draft to edit, not gospel. */
+function parseRedditSlug(url) {
+  try {
+    const m = String(url).match(/reddit\.com\/r\/([^/]+)\/comments\/[^/]+\/([^/?#]+)/i);
+    if (!m || !m[2]) return null;
+    const title = decodeURIComponent(m[2]).replace(/_/g, " ").trim()
+      .replace(/\s+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    return { subreddit: m[1], title };
+  } catch (e) { return null; }
+}
+
+/* Optional bookmarklet handoff: a bookmark run ON the Reddit post opens the Ledger
+   with #add=<json>, letting us grab the exact title + author cross-origin-free. */
+function importFromHash() {
+  const m = (location.hash || "").match(/[#&]add=([^&]+)/);
+  if (!m) return false;
+  try {
+    const data = JSON.parse(decodeURIComponent(m[1]));
+    const s = newStory();
+    s.title = (data.title || "").trim();
+    s.author = (data.author || "").trim().replace(/^u\//, "");
+    s.url = (data.url || "").trim();
+    if (!s.title && s.url) { const p = parseRedditSlug(s.url); if (p) s.title = p.title; }
+    state.stories.unshift(s);
+    activeId = s.id;
+    save();
+    history.replaceState(null, "", location.pathname + location.search);
+    return true;
+  } catch (e) { return false; }
+}
+
 function download(name, text, type) {
   const blob = new Blob([text], { type });
   const a = document.createElement("a");
@@ -493,7 +558,8 @@ function renderEditor() {
       <div class="field"><label>Author (u/…)</label><input id="fAuthor" value="${esc(story.author)}" placeholder="username"></div>
     </div>
     <div class="url-row">
-      <div class="field"><label>Link to the post</label><input id="fUrl" value="${esc(story.url)}" placeholder="https://www.reddit.com/r/nosleep/…"></div>
+      <div class="field"><label>Link to the post</label><input id="fUrl" value="${esc(story.url)}" placeholder="Paste the reddit.com/r/nosleep/… link — title auto-fills from it"></div>
+      <button class="open-link" id="titleFromUrl" title="Fill the title from the link's slug">⤵ Title from link</button>
       <a class="open-link ${isNoSleepUrl(story.url) ? "" : "disabled"}" id="openLink" href="${esc(story.url)}" target="_blank" rel="noopener noreferrer">↗ Open read</a>
     </div>
 
@@ -581,6 +647,29 @@ function bindEditor(story) {
   bindText("fAuthor", "author", true);
   bindText("fUrl", "url", false);
   bindText("fNotes", "notes", false);
+
+  // Auto-fill the title from the pasted link's slug — only when the title is still empty,
+  // so it never clobbers something you typed. The button below forces a re-fill on demand.
+  document.getElementById("fUrl").addEventListener("input", e => {
+    if (story.title.trim()) return;
+    const p = parseRedditSlug(e.target.value);
+    if (p && p.title) {
+      story.title = p.title;
+      document.getElementById("fTitle").value = p.title;
+      touch(story);
+      renderLibrary();
+    }
+  });
+  document.getElementById("titleFromUrl").addEventListener("click", () => {
+    const p = parseRedditSlug(document.getElementById("fUrl").value);
+    if (!p || !p.title) { flash("No title slug in that link"); return; }
+    if (story.title.trim() && !confirm(`Replace the title with "${p.title}"?`)) return;
+    story.title = p.title;
+    document.getElementById("fTitle").value = p.title;
+    touch(story);
+    renderLibrary();
+    flash("Title from link — edit as needed");
+  });
 
   // axis scoring — one click
   $main.querySelectorAll(".segs").forEach(row => {
@@ -683,9 +772,45 @@ document.getElementById("importFile").addEventListener("change", e => {
   e.target.value = "";
 });
 
+/* Build the bookmarklet, pointed back at wherever this page is actually hosted. */
+function buildBookmarklet() {
+  const base = location.origin + location.pathname;
+  // Runs on the Reddit post (same-origin there), reads title + author from the DOM,
+  // then hands them to this page via #add=. Covers new (shreddit) and old reddit.
+  const code =
+    "javascript:(function(){" +
+    "var p=document.querySelector('shreddit-post');" +
+    "var t=p&&(p.getAttribute('post-title')||p.getAttribute('data-title'));" +
+    "var a=p&&p.getAttribute('author');" +
+    "if(!t){t=document.title.replace(/\\s*[:\\-]\\s*r\\/nosleep.*$/i,'').replace(/\\s*[:\\-]\\s*reddit.*$/i,'').trim();}" +
+    "if(!a){var e=document.querySelector('a[href^=\"/user/\"],a[href*=\"/user/\"]');if(e){a=e.textContent.replace(/^u\\//,'').trim();}}" +
+    "var u=location.href.split('?')[0].split('#')[0];" +
+    "var d=encodeURIComponent(JSON.stringify({title:t||'',author:a||'',url:u}));" +
+    "location.href=" + JSON.stringify(base) + "+'#add='+d;" +
+    "})();";
+  const link = document.getElementById("bmLink");
+  const box = document.getElementById("bmCode");
+  if (link) link.setAttribute("href", code);
+  if (box) box.value = code;
+}
+
+// If the tab is already open and the bookmarklet only changes the hash, no reload fires —
+// catch that here so the import still runs.
+window.addEventListener("hashchange", () => {
+  if (importFromHash()) {
+    renderLibrary();
+    renderEditor();
+    document.getElementById("fTitle").focus();
+    flash("Added from Reddit link");
+  }
+});
+
 /* ================= Boot ================= */
+const cameFromReddit = importFromHash();
+buildBookmarklet();
 renderLibrary();
 renderEditor();
+if (cameFromReddit) { document.getElementById("fTitle").focus(); flash("Added from Reddit link"); }
 </script>
 </body>
 </html>
