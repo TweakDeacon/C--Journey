@@ -1,0 +1,86 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+
+int main()
+{
+	std::string inputPath;
+	std::string outputPath;
+	int intensity;
+	int headerSkip;
+
+	std::cout << "=== Image Corruptor ===" << std::endl;
+	std::cout << "Inspired by RTCV. Corrupts an image by randomly flipping bytes." << std::endl;
+	std::cout << "Works best on BMP files. JPG/PNG may produce broken or glitch-art results." << std::endl;
+	std::cout << std::endl;
+
+	std::cout << "Enter the path to the image to corrupt: ";
+	std::getline(std::cin, inputPath);
+
+	std::cout << "Enter the path to save the corrupted image: ";
+	std::getline(std::cin, outputPath);
+
+	std::cout << "Enter corruption intensity (1-100, percent of bytes to corrupt): ";
+	std::cin >> intensity;
+
+	std::cout << "Enter number of header bytes to preserve (try 54 for BMP, 1024 for JPG/PNG): ";
+	std::cin >> headerSkip;
+
+	if (intensity < 1) intensity = 1;
+	if (intensity > 100) intensity = 100;
+	if (headerSkip < 0) headerSkip = 0;
+
+	std::ifstream input(inputPath, std::ios::binary);
+	if (!input)
+	{
+		std::cout << "Error: could not open input file." << std::endl;
+		return 1;
+	}
+
+	std::vector<unsigned char> bytes(
+		(std::istreambuf_iterator<char>(input)),
+		std::istreambuf_iterator<char>());
+	input.close();
+
+	if (bytes.empty())
+	{
+		std::cout << "Error: input file is empty." << std::endl;
+		return 1;
+	}
+
+	if (static_cast<size_t>(headerSkip) >= bytes.size())
+	{
+		std::cout << "Error: header skip is larger than the file." << std::endl;
+		return 1;
+	}
+
+	std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
+	size_t corruptableSize = bytes.size() - headerSkip;
+	size_t bytesToCorrupt = (corruptableSize * intensity) / 100;
+
+	std::cout << "File size: " << bytes.size() << " bytes" << std::endl;
+	std::cout << "Corrupting " << bytesToCorrupt << " bytes..." << std::endl;
+
+	for (size_t i = 0; i < bytesToCorrupt; i++)
+	{
+		size_t index = headerSkip + (std::rand() % corruptableSize);
+		bytes[index] = static_cast<unsigned char>(std::rand() % 256);
+	}
+
+	std::ofstream output(outputPath, std::ios::binary);
+	if (!output)
+	{
+		std::cout << "Error: could not open output file." << std::endl;
+		return 1;
+	}
+
+	output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+	output.close();
+
+	std::cout << "Done! Corrupted image saved to: " << outputPath << std::endl;
+	return 0;
+}
